@@ -1,20 +1,84 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from "react";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import AppNavigator from "./src/navigation/AppNavigator";
+import { initDB, fixDatabaseStructure } from "./src/database/db";
+import { theme } from "./src/theme/theme";
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        console.log("🟡 Verificando e corrigindo estrutura do banco...");
+        fixDatabaseStructure(); // 🔧 Corrige colunas antes de qualquer uso
+        await initDB(); // ⚡ Cria tabelas se não existirem
+        console.log("✅ Banco pronto e estrutura verificada!");
+        setReady(true);
+      } catch (error) {
+        console.error("❌ Erro ao inicializar o banco:", error);
+      }
+    };
+
+    initialize();
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <NavigationContainer
+        theme={{
+          dark: true,
+          colors: {
+            primary: theme.colors.primary,
+            background: theme.colors.background,
+            card: theme.colors.background,
+            text: theme.colors.text,
+            border: theme.colors.cardBorder,
+            notification: theme.colors.danger,
+          },
+          fonts: {
+            regular: {
+              fontFamily: 'System',
+              fontWeight: '400',
+            },
+            medium: {
+              fontFamily: 'System',
+              fontWeight: '500',
+            },
+            bold: {
+              fontFamily: 'System',
+              fontWeight: '700',
+            },
+            heavy: {
+              fontFamily: 'System',
+              fontWeight: '900',
+            },
+          },
+        }}
+      >
+        <StatusBar style="light" />
+        <AppNavigator />
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loader: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: theme.colors.background,
   },
 });
