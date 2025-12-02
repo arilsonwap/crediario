@@ -1,46 +1,172 @@
-export const theme = {
+/* ================================================================
+   🎨 TIPAGEM GLOBAL PARA THEME – Expo + TypeScript
+================================================================ */
+
+export type ColorHex = string;
+
+/* Gradient compatível com Expo LinearGradient */
+export type Gradient = readonly [ColorHex, ColorHex, ...ColorHex[]];
+
+/* Sombra tipada */
+export type Shadow = {
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  elevation: number;
+};
+
+/* Colors do tema */
+export interface ThemeColors {
+  background: ColorHex;
+  backgroundSecondary: ColorHex;
+  backgroundTertiary: ColorHex;
+
+  card: ColorHex;
+  cardBorder: ColorHex;
+  cardSecondary: ColorHex;
+
+  primary: ColorHex;
+  primaryDark: ColorHex;
+  primaryLight: ColorHex;
+
+  secondary: ColorHex;
+  success: ColorHex;
+  danger: ColorHex;
+  dangerDark: ColorHex;
+  warning: ColorHex;
+  warningDark: ColorHex;
+  info: ColorHex;
+
+  text: ColorHex;
+  textSecondary: ColorHex;
+  textMuted: ColorHex;
+  textDark: ColorHex;
+  muted: ColorHex;
+}
+
+/* Gradientes tipados */
+export interface ThemeGradients {
+  background: Gradient;
+  primary: Gradient;
+  secondary: Gradient;
+  danger: Gradient;
+  warning: Gradient;
+  success: Gradient;
+  card: Gradient;
+}
+
+/* Espaçamentos */
+export interface ThemeSpacing {
+  xs: number;
+  sm: number;
+  md: number;
+  lg: number;
+  xl: number;
+  xxl: number;
+}
+
+/* Bordas */
+export interface ThemeRadius {
+  sm: number;
+  md: number;
+  lg: number;
+  xl: number;
+  xxl: number;
+  round: number;
+}
+
+/* Tipografia */
+export interface ThemeFont {
+  family: {
+    regular: string;
+    bold: string;
+  };
+  size: {
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    xxl: number;
+    xxxl: number;
+  };
+  weight: {
+    regular: string;
+    medium: string;
+    semibold: string;
+    bold: string;
+    extrabold: string;
+    black: string;
+  };
+}
+
+/* Estrutura de sombras */
+export interface ThemeShadow {
+  default: Shadow;
+  glow: Shadow;
+  large: Shadow;
+  glowDanger: Shadow;
+  glowWarning: Shadow;
+}
+
+/* ================================================================
+   🎨 THEME FINAL – 100% TIPADO
+================================================================ */
+
+export interface Theme {
+  colors: ThemeColors;
+  gradients: ThemeGradients;
+  spacing: ThemeSpacing;
+  radius: ThemeRadius;
+  font: ThemeFont;
+  shadow: ThemeShadow;
+  opacity: {
+    light: number;
+    medium: number;
+    strong: number;
+  };
+}
+
+export const theme: Theme = {
   colors: {
-    // Backgrounds - Gradiente azul escuro
     background: "#0F2027",
     backgroundSecondary: "#203A43",
     backgroundTertiary: "#2C5364",
-    
-    // Cards e containers
+
     card: "rgba(0, 212, 255, 0.12)",
     cardBorder: "rgba(0, 212, 255, 0.3)",
     cardSecondary: "rgba(255, 255, 255, 0.08)",
-    
-    // Cores principais
-    primary: "#00D4FF", // Azul ciano vibrante
+
+    primary: "#00D4FF",
     primaryDark: "#0077B6",
     primaryLight: "#00E5FF",
-    
-    secondary: "#00A8E8", // Azul médio
-    success: "#4ECDC4", // Verde água
-    danger: "#FF416C", // Vermelho coral
+
+    secondary: "#00A8E8",
+    success: "#4ECDC4",
+    danger: "#FF416C",
     dangerDark: "#FF4B2B",
-    warning: "#FFD60A", // Amarelo dourado
+    warning: "#FFD60A",
     warningDark: "#FFC300",
-    info: "#764BA2", // Roxo
-    
-    // Textos
+    info: "#764BA2",
+
     text: "#FFFFFF",
     textSecondary: "rgba(255, 255, 255, 0.9)",
     textMuted: "rgba(255, 255, 255, 0.6)",
     textDark: "#1A1A1A",
     muted: "rgba(255, 255, 255, 0.5)",
   },
-  
+
   gradients: {
-    background: ["#0F2027", "#203A43", "#2C5364"],
-    primary: ["#00D4FF", "#00A8E8", "#0077B6"],
-    secondary: ["rgba(255, 255, 255, 0.2)", "rgba(255, 255, 255, 0.1)"],
-    danger: ["#FF416C", "#FF4B2B"],
-    warning: ["#FFD60A", "#FFC300"],
-    success: ["#4ECDC4", "#44A08D"],
-    card: ["rgba(0, 212, 255, 0.12)", "rgba(0, 168, 232, 0.08)"],
+    background: ["#0F2027", "#203A43", "#2C5364"] as Gradient,
+    primary: ["#00D4FF", "#00A8E8", "#0077B6"] as Gradient,
+    secondary: ["rgba(255,255,255,0.2)", "rgba(255,255,255,0.1)"] as Gradient,
+    danger: ["#FF416C", "#FF4B2B"] as Gradient,
+    warning: ["#FFD60A", "#FFC300"] as Gradient,
+    success: ["#4ECDC4", "#44A08D"] as Gradient,
+    card: ["rgba(0,212,255,0.12)", "rgba(0,168,232,0.08)"] as Gradient,
   },
-  
+
   spacing: {
     xs: 4,
     sm: 8,
@@ -49,7 +175,7 @@ export const theme = {
     xl: 32,
     xxl: 40,
   },
-  
+
   radius: {
     sm: 8,
     md: 12,
@@ -58,7 +184,7 @@ export const theme = {
     xxl: 24,
     round: 999,
   },
-  
+
   font: {
     family: {
       regular: "System",
@@ -82,9 +208,8 @@ export const theme = {
       black: "900",
     },
   },
-  
+
   shadow: {
-    // Sombra padrão escura
     default: {
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 4 },
@@ -92,7 +217,6 @@ export const theme = {
       shadowRadius: 8,
       elevation: 4,
     },
-    // Sombra com glow ciano
     glow: {
       shadowColor: "#00D4FF",
       shadowOffset: { width: 0, height: 8 },
@@ -100,7 +224,6 @@ export const theme = {
       shadowRadius: 16,
       elevation: 8,
     },
-    // Sombra pronunciada
     large: {
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 12 },
@@ -108,7 +231,6 @@ export const theme = {
       shadowRadius: 20,
       elevation: 10,
     },
-    // Sombra com glow colorido
     glowDanger: {
       shadowColor: "#FF416C",
       shadowOffset: { width: 0, height: 8 },
@@ -124,11 +246,11 @@ export const theme = {
       elevation: 6,
     },
   },
-  
-  // Opacidades padrão
+
   opacity: {
     light: 0.1,
     medium: 0.25,
     strong: 0.5,
   },
 };
+

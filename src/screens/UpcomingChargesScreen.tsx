@@ -1,5 +1,4 @@
-// src/screens/UpcomingChargesScreen.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -10,16 +9,29 @@ import {
   ActivityIndicator,
   Animated,
 } from "react-native";
-import { getUpcomingCharges, type Client } from "../database/db"; // ✅ usa o tipo Client do banco
-import { CalendarIcon } from "../components/CalendarIcon";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { getUpcomingCharges, type Client } from "../database/db";
 
 type ChargesByDate = Record<string, Client[]>;
 
-// 🔹 Funções auxiliares
+type DaySummary = {
+  date: Date;
+  dateStr: string;
+  weekday: string;
+  count: number;
+  isToday: boolean;
+};
+
+// 🔹 Helpers de data
 const pad = (n: number) => n.toString().padStart(2, "0");
-const formatDateBR = (d: Date) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+const formatDateBR = (d: Date) =>
+  `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 const weekAbbrev = (d: Date) =>
-  d.toLocaleDateString("pt-BR", { weekday: "short" }).toUpperCase().replace(".", "");
+  d.toLocaleDateString("pt-BR", { weekday: "long" })
+    .split('-')[0] // Remove "-feira" se houver
+    .replace(/^\w/, (c) => c.toUpperCase()); // Capitaliza
+
 const isToday = (d: Date) => {
   const t = new Date();
   return (
@@ -29,17 +41,30 @@ const isToday = (d: Date) => {
   );
 };
 
-export default function UpcomingChargesScreen({ navigation }: any) {
+export default function UpcomingChargesScreen() {
+  const navigation = useNavigation<any>();
   const [loading, setLoading] = useState(true);
   const [chargesByDate, setChargesByDate] = useState<ChargesByDate>({});
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(24)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  // 🎨 Configuração do Header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: "Agenda de Cobranças",
+      headerStyle: { backgroundColor: "#0056b3", elevation: 0, shadowOpacity: 0 },
+      headerTintColor: "#fff",
+      headerTitleStyle: { fontWeight: "700" },
+    });
+  }, [navigation]);
 
   // ============================================================
-  // 🔄 Carrega próximas cobranças e agrupa por data
+  // 🔄 Carrega cobranças e agrupa
   // ============================================================
   useEffect(() => {
+    let isMounted = true;
+
     (async () => {
       try {
         const clients = await getUpcomingCharges();
@@ -47,49 +72,51 @@ export default function UpcomingChargesScreen({ navigation }: any) {
 
         clients.forEach((c) => {
           if (!c.next_charge) return;
-          if (!grouped[c.next_charge]) grouped[c.next_charge] = [];
-          grouped[c.next_charge].push(c);
+          // Normaliza data (assumindo formato DD/MM/YYYY do seu DB)
+          // Se sua data for YYYY-MM-DD, ajuste aqui
+          const key = c.next_charge; 
+
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(c);
         });
 
+        if (!isMounted) return;
         setChargesByDate(grouped);
       } catch (e) {
-        console.error("Erro ao carregar próximas cobranças:", e);
+        console.error("Erro ao carregar agenda:", e);
       } finally {
+        if (!isMounted) return;
         setLoading(false);
         Animated.parallel([
-          Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
+          Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
           Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true }),
         ]).start();
       }
     })();
+
+    return () => { isMounted = false; };
   }, [fadeAnim, slideAnim]);
 
   // ============================================================
-  // 🔁 Animação de pulsar no contador total
+  // 📅 Próximos 7 dias
   // ============================================================
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.08, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [pulseAnim]);
-
-  // ============================================================
-  // 📅 Calcula os próximos 7 dias com seus totais
-  // ============================================================
-  const next7 = useMemo(() => {
-    const arr: { dateStr: string; weekday: string; count: number; isToday: boolean }[] = [];
+  const next7: DaySummary[] = useMemo(() => {
+    const arr: DaySummary[] = [];
     const today = new Date();
+
     for (let i = 0; i < 7; i++) {
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-      const ds = formatDateBR(d);
+      const dateStr = formatDateBR(d);
+      const weekday = weekAbbrev(d);
+      // Busca pela string formatada
+      const count = (chargesByDate[dateStr] || []).length;
+
       arr.push({
-        dateStr: ds,
-        weekday: weekAbbrev(d),
-        count: (chargesByDate[ds] || []).length,
-        isToday: isToday(d),
+        date: d,
+        dateStr,
+        weekday,
+        count,
+        isToday: i === 0, // Assume index 0 como hoje para simplificar visualização
       });
     }
     return arr;
@@ -107,212 +134,263 @@ export default function UpcomingChargesScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-        <ActivityIndicator size="large" color="#777" />
-        <Text style={styles.loadingText}>Carregando...</Text>
+        <StatusBar barStyle="light-content" backgroundColor="#0056b3" />
+        <ActivityIndicator size="large" color="#0056b3" />
+        <Text style={styles.loadingText}>Sincronizando agenda...</Text>
       </View>
     );
   }
 
-  const todayBR = formatDateBR(new Date());
-
-  // ============================================================
-  // 🧾 Render principal
-  // ============================================================
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0056b3" />
+      
+      {/* Resumo Superior */}
+      <View style={styles.summaryBar}>
+        <Text style={styles.summaryText}>
+          Próximos 7 dias: <Text style={{fontWeight: 'bold'}}>{totalCount} vencimentos</Text>
+        </Text>
+      </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Card superior */}
-        <Animated.View
-          style={[styles.topCard, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
-        >
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate("ClientsByDate", { date: todayBR })}
-          >
-            <View style={styles.topCardInner}>
-              <View style={styles.iconCircle}>
-                <CalendarIcon size={58} showMonth />
-              </View>
+        
+        {/* Timeline Container */}
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          {next7.map((day, index) => {
+            const hasCharges = day.count > 0;
+            const isLast = index === next7.length - 1;
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.topTitle}>Próximas Cobranças</Text>
-                <Text style={styles.topSubtitle}>Próximos 7 dias</Text>
-              </View>
-
-              <Animated.View style={[styles.totalBadge, { transform: [{ scale: pulseAnim }] }]}>
-                <Text style={styles.totalBadgeText}>{totalCount}</Text>
-              </Animated.View>
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Timeline */}
-        <View style={styles.timeline}>
-          <View style={styles.timelineLine} />
-          {next7.map((d) => (
-            <View key={d.dateStr} style={styles.timelineItem}>
-              <View style={styles.pinWrapper}>
-                <View
-                  style={[
-                    styles.pin,
-                    d.isToday
-                      ? styles.pinToday
-                      : d.count > 0
-                      ? styles.pinActive
-                      : styles.pinEmpty,
-                  ]}
-                >
-                  <Text style={styles.pinText}>{d.count}</Text>
+            return (
+              <View key={day.dateStr} style={styles.timelineRow}>
+                
+                {/* Coluna da Linha (Esquerda) */}
+                <View style={styles.timelineCol}>
+                  <View style={[styles.line, isLast && styles.lineHidden]} />
+                  <View style={[
+                    styles.dot, 
+                    day.isToday && styles.dotToday,
+                    hasCharges && !day.isToday && styles.dotActive
+                  ]}>
+                    {day.isToday ? (
+                      <View style={styles.innerDotToday} />
+                    ) : null}
+                  </View>
                 </View>
-              </View>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => handleDayPress(d.dateStr)}
-                style={[
-                  styles.dayCard,
-                  d.isToday
-                    ? styles.dayCardToday
-                    : d.count > 0
-                    ? styles.dayCardActive
-                    : styles.dayCardEmpty,
-                ]}
-              >
-                <View style={styles.dayRow}>
-                  <Text
+                {/* Card do Dia (Direita) */}
+                <View style={styles.cardWrapper}>
+                  <TouchableOpacity
+                    activeOpacity={hasCharges ? 0.7 : 1}
+                    onPress={() => hasCharges ? handleDayPress(day.dateStr) : null}
                     style={[
-                      styles.weekAbbrev,
-                      d.isToday
-                        ? styles.weekAbbrevToday
-                        : d.count > 0
-                        ? styles.weekAbbrevActive
-                        : styles.weekAbbrevEmpty,
+                      styles.dayCard,
+                      day.isToday && styles.dayCardToday,
+                      !hasCharges && styles.dayCardEmpty
                     ]}
                   >
-                    {d.weekday}
-                  </Text>
+                    <View style={styles.cardHeader}>
+                      <View>
+                        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                          <Text style={[
+                            styles.weekday, 
+                            day.isToday && { color: "#0056b3" },
+                            !hasCharges && { color: "#94A3B8" }
+                          ]}>
+                            {day.weekday}
+                          </Text>
+                          {day.isToday && (
+                            <View style={styles.todayBadge}>
+                              <Text style={styles.todayText}>HOJE</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[
+                          styles.dateStr,
+                          !hasCharges && { color: "#CBD5E1" }
+                        ]}>
+                          {day.dateStr}
+                        </Text>
+                      </View>
 
-                  {d.isToday && <Text style={styles.todayTag}>HOJE</Text>}
+                      {/* Contador / Status */}
+                      {hasCharges ? (
+                        <View style={[
+                          styles.countBadge,
+                          day.isToday ? { backgroundColor: "#0056b3" } : { backgroundColor: "#E2E8F0" }
+                        ]}>
+                          <Text style={[
+                            styles.countText,
+                            day.isToday ? { color: "#FFF" } : { color: "#475569" }
+                          ]}>
+                            {day.count}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Ionicons name="ellipse" size={8} color="#E2E8F0" />
+                      )}
+                    </View>
+
+                    {/* Mensagem de status */}
+                    <Text style={styles.statusMsg}>
+                      {hasCharges 
+                        ? `${day.count} cliente${day.count > 1 ? 's' : ''} vence${day.count > 1 ? 'm' : ''} nesta data`
+                        : "Nenhuma cobrança agendada"}
+                    </Text>
+
+                  </TouchableOpacity>
                 </View>
+              </View>
+            );
+          })}
+        </Animated.View>
 
-                <Text style={styles.dayDate}>{d.dateStr}</Text>
-
-                <Text style={styles.dayInfo}>
-                  {d.count === 0
-                    ? "Sem cobranças"
-                    : d.count === 1
-                    ? "1 cobrança"
-                    : `${d.count} cobranças`}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
       </ScrollView>
     </View>
   );
 }
 
-/* 🎨 Estilo ajustado com espaçamento e alinhamento corretos */
+/* 🎨 Estilos Enterprise */
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#FFFFFF" },
-  loading: {
-    flex: 1,
-    backgroundColor: "#FFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: { color: "#555", marginTop: 10 },
-  container: { padding: 16, paddingBottom: 28 },
+  root: { flex: 1, backgroundColor: "#F1F5F9" },
 
-  topCard: {
-    backgroundColor: "#FFFFFF",
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F5F9" },
+  loadingText: { color: "#64748B", marginTop: 12, fontWeight: "500" },
+
+  // Barra de Resumo
+  summaryBar: {
+    backgroundColor: "#E0F2FE",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#BFDBFE",
+    marginBottom: 10,
+  },
+  summaryText: { color: "#0056b3", fontSize: 13, textAlign: 'center' },
+
+  container: { padding: 20, paddingBottom: 40 },
+
+  // Timeline Structure
+  timelineRow: { flexDirection: "row", minHeight: 90 },
+  
+  timelineCol: {
+    width: 40,
+    alignItems: "center",
+  },
+  line: {
+    position: "absolute",
+    top: 18,
+    bottom: -18,
+    width: 2,
+    backgroundColor: "#E2E8F0",
+    left: 19,
+    zIndex: 0,
+  },
+  lineHidden: { display: 'none' },
+  
+  dot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#CBD5E1",
+    zIndex: 1,
+    marginTop: 4, // Alinha com o topo do card
+    borderWidth: 2,
+    borderColor: "#F1F5F9"
+  },
+  dotActive: { backgroundColor: "#334155" }, // Dia normal com cobrança
+  dotToday: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#EFF6FF",
+    borderColor: "#0056b3",
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  innerDotToday: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#0056b3"
+  },
+
+  // Cards
+  cardWrapper: { flex: 1, paddingBottom: 16 },
+  dayCard: {
+    backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 16,
-    marginBottom: 28,
+    marginLeft: 10,
+    // Sombra
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    borderColor: "#E2E8F0"
   },
-  topCardInner: { flexDirection: "row", alignItems: "center" },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#F0F0F0",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
+  dayCardToday: {
+    borderColor: "#93C5FD",
+    backgroundColor: "#FFFFFF",
+    borderLeftWidth: 4,
+    borderLeftColor: "#0056b3"
   },
-  topTitle: { color: "#111", fontSize: 20, fontWeight: "800" },
-  topSubtitle: { color: "#777", marginTop: 2, fontSize: 13, fontWeight: "600" },
-  totalBadge: {
-    backgroundColor: "#EEE",
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  dayCardEmpty: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowOpacity: 0,
+    elevation: 0,
+    borderStyle: 'dashed'
   },
-  totalBadgeText: { color: "#222", fontWeight: "800", fontSize: 14 },
 
-  timeline: { marginTop: 12, paddingLeft: 36 },
-  timelineLine: {
-    position: "absolute",
-    left: 20,
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: "#E0E0E0",
+  // Card Content
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6
   },
-  timelineItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 26,
-  },
-  pinWrapper: { position: "absolute", left: 0, top: 4, width: 44, alignItems: "center" },
-  pin: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-  },
-  pinToday: { backgroundColor: "#DDD", borderColor: "#CCC" },
-  pinActive: { backgroundColor: "#CCC", borderColor: "#BBB" },
-  pinEmpty: { backgroundColor: "#EEE", borderColor: "#DDD" },
-  pinText: { color: "#333", fontWeight: "700" },
-
-  dayCard: {
-    flex: 1,
-    marginLeft: 48,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    backgroundColor: "#FFF",
-  },
-  dayCardToday: { borderColor: "#CCC" },
-  dayCardActive: { borderColor: "#CCC" },
-  dayCardEmpty: { borderColor: "#E5E5E5" },
-  dayRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  weekAbbrev: { fontSize: 13, fontWeight: "700" },
-  weekAbbrevToday: { color: "#111" },
-  weekAbbrevActive: { color: "#222" },
-  weekAbbrevEmpty: { color: "#AAA" },
-  todayTag: {
-    borderWidth: 1,
-    borderColor: "#AAA",
-    color: "#333",
+  weekday: {
+    fontSize: 16,
     fontWeight: "700",
+    color: "#334155",
+    textTransform: "capitalize"
+  },
+  dateStr: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2
+  },
+  
+  // Badges
+  todayBadge: {
+    backgroundColor: "#EFF6FF",
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: "#DBEAFE"
   },
-  dayDate: { marginTop: 6, fontSize: 18, fontWeight: "800", color: "#111" },
-  dayInfo: { marginTop: 4, fontSize: 14, color: "#555", fontWeight: "500" },
+  todayText: { fontSize: 9, fontWeight: "800", color: "#0056b3" },
+
+  countBadge: {
+    minWidth: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6
+  },
+  countText: { fontSize: 13, fontWeight: "bold" },
+
+  statusMsg: {
+    fontSize: 13,
+    color: "#64748B",
+    marginTop: 4,
+  }
 });

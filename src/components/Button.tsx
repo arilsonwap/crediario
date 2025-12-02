@@ -1,9 +1,29 @@
 import React from "react";
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, Animated } from "react-native";
+import {
+  Pressable,
+  Text,
+  StyleSheet,
+  ViewStyle,
+  Animated,
+  View,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { theme } from "../theme/theme";
 
-type ButtonType = "primary" | "secondary" | "danger" | "warning" | "success" | "outline";
+/* ============================
+   Tipagem CORRIGIDA
+============================ */
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
+
+type ButtonType =
+  | "primary"
+  | "secondary"
+  | "danger"
+  | "warning"
+  | "success"
+  | "outline";
 
 type ButtonProps = {
   label: string;
@@ -11,7 +31,7 @@ type ButtonProps = {
   onPress?: () => void;
   style?: ViewStyle;
   disabled?: boolean;
-  icon?: string; // Emoji icon
+  icon?: string | { ion: IoniconName };
   fullWidth?: boolean;
 };
 
@@ -24,56 +44,53 @@ export const Button = ({
   icon,
   fullWidth = false,
 }: ButtonProps) => {
+
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
-  // Animação de press
-  const handlePressIn = () => {
+  const animate = (to: number) => {
+    if (disabled) return;
     Animated.spring(scaleAnim, {
-      toValue: 0.96,
+      toValue: to,
+      friction: 4,
+      tension: 140,
       useNativeDriver: true,
     }).start();
   };
 
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 3,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-  };
+  /* ============================
+     Configurações por tipo
+  ============================ */
 
-  // Configurações por tipo
   const buttonConfig = {
     primary: {
-      colors: theme.gradients.primary as [string, string, ...string[]],
-      shadow: theme.shadow.glow,
+      colors: theme.gradients.primary,
       textColor: theme.colors.text,
+      shadow: theme.shadow.glow,
     },
     secondary: {
-      colors: theme.gradients.secondary as [string, string, ...string[]],
-      shadow: theme.shadow.default,
+      colors: theme.gradients.secondary,
       textColor: theme.colors.text,
+      shadow: theme.shadow.default,
     },
     danger: {
-      colors: theme.gradients.danger as [string, string, ...string[]],
-      shadow: theme.shadow.glowDanger,
+      colors: theme.gradients.danger,
       textColor: theme.colors.text,
+      shadow: theme.shadow.glowDanger,
     },
     warning: {
-      colors: theme.gradients.warning as [string, string, ...string[]],
-      shadow: theme.shadow.glowWarning,
+      colors: theme.gradients.warning,
       textColor: theme.colors.textDark,
+      shadow: theme.shadow.glowWarning,
     },
     success: {
-      colors: theme.gradients.success as [string, string, ...string[]],
-      shadow: theme.shadow.glow,
+      colors: theme.gradients.success,
       textColor: theme.colors.text,
+      shadow: theme.shadow.glow,
     },
     outline: {
-      colors: ["transparent", "transparent"] as [string, string],
-      shadow: {},
+      colors: ["transparent", "transparent"] as const, // <- CORRIGIDO
       textColor: theme.colors.primary,
+      shadow: {},
     },
   };
 
@@ -82,59 +99,92 @@ export const Button = ({
   return (
     <Animated.View
       style={[
-        styles.container,
-        fullWidth && styles.fullWidth,
         { transform: [{ scale: scaleAnim }] },
+        fullWidth && styles.fullWidth,
         style,
       ]}
     >
-      <TouchableOpacity
-        activeOpacity={0.9}
-        style={[
-          styles.button,
-          disabled && styles.disabled,
-          type === "outline" && styles.outlineButton,
-        ]}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+      <Pressable
         disabled={disabled}
+        onPress={onPress}
+        onPressIn={() => animate(0.95)}
+        onPressOut={() => animate(1)}
+        style={({ pressed }) => [
+          styles.button,
+          type === "outline" && styles.outlineButton,
+          pressed && !disabled && { opacity: 0.9 },
+        ]}
       >
-        <LinearGradient
-          colors={config.colors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.gradient,
-            config.shadow,
-          ]}
-        >
-          {icon && <Text style={styles.icon}>{icon}</Text>}
-          <Text style={[styles.label, { color: config.textColor }]}>
-            {label}
-          </Text>
-        </LinearGradient>
-      </TouchableOpacity>
+        {type === "outline" ? (
+
+          /* ============================
+             OUTLINE – sem gradient
+          ============================ */
+          <View style={[styles.inner, config.shadow]}>
+            {icon && typeof icon === "string" && (
+              <Text style={styles.icon}>{icon}</Text>
+            )}
+
+            {icon && typeof icon === "object" && (
+              <Ionicons name={icon.ion} size={20} color={config.textColor} />
+            )}
+
+            <Text style={[styles.label, { color: config.textColor }]}>
+              {label}
+            </Text>
+          </View>
+
+        ) : (
+
+          /* ============================
+             TIPOS COM GRADIENTE
+          ============================ */
+          <LinearGradient
+            colors={config.colors as readonly [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.inner, config.shadow]}
+          >
+            {icon && typeof icon === "string" && (
+              <Text style={styles.icon}>{icon}</Text>
+            )}
+
+            {icon && typeof icon === "object" && (
+              <Ionicons name={icon.ion} size={20} color={config.textColor} />
+            )}
+
+            <Text style={[styles.label, { color: config.textColor }]}>
+              {label}
+            </Text>
+          </LinearGradient>
+
+        )}
+      </Pressable>
     </Animated.View>
   );
 };
 
+/* ============================
+   Styles
+============================ */
+
 const styles = StyleSheet.create({
-  container: {
-    marginVertical: theme.spacing.sm,
-  },
   fullWidth: {
     width: "100%",
   },
+
   button: {
     borderRadius: theme.radius.lg,
     overflow: "hidden",
   },
+
   outlineButton: {
     borderWidth: 2,
     borderColor: theme.colors.primary,
   },
-  gradient: {
+
+  inner: {
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -142,15 +192,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     gap: theme.spacing.sm,
   },
+
   icon: {
     fontSize: 20,
   },
+
   label: {
     fontSize: theme.font.size.md,
     fontWeight: "700",
     letterSpacing: 0.5,
-  },
-  disabled: {
-    opacity: 0.5,
   },
 });
