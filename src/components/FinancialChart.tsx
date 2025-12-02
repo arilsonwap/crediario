@@ -1,13 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
+import Svg, { Circle } from "react-native-svg";
+import { formatCurrency } from "../utils/formatCurrency";
 
 type Props = {
   totalPaid: number;
@@ -15,63 +9,107 @@ type Props = {
 };
 
 export default function FinancialChart({ totalPaid, totalToReceive }: Props) {
-  const data = [
-    { name: "Recebido", value: totalPaid },
-    { name: "A Receber", value: totalToReceive },
-  ];
+  const size = 150;
+  const strokeWidth = 16;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  const total = totalPaid + totalToReceive;
+  const percent = total > 0 ? totalPaid / total : 0;
+
+  const paidStrokeDashoffset = circumference - circumference * percent;
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>📊 Desempenho Financeiro</Text>
+      <Text style={styles.title}>Resumo Geral</Text>
 
-      <View style={styles.chartWrapper}>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={data}>
-            {/* Eixo X */}
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 14, fill: "#555" }}
-              axisLine={{ stroke: "#e5e7eb" }}
-            />
-            {/* Eixo Y */}
-            <YAxis
-              tickFormatter={(v) => `R$ ${v}`}
-              tick={{ fontSize: 12, fill: "#666" }}
-              axisLine={{ stroke: "#e5e7eb" }}
-            />
-            {/* Barras */}
-            <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-              <Cell fill="#34C759" /> {/* Verde - Recebido */}
-              <Cell fill="#007AFF" /> {/* Azul - A Receber */}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <Svg width={size} height={size} style={{ alignSelf: "center" }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#E2E8F0"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#16A34A"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={paidStrokeDashoffset}
+          strokeLinecap="round"
+        />
+      </Svg>
+
+      <Text style={styles.percentText}>
+        {Math.round(percent * 100)}%
+      </Text>
+
+      <View style={styles.legend}>
+        <View style={styles.legendRow}>
+          <View style={[styles.dot, { backgroundColor: "#16A34A" }]} />
+          <Text style={styles.legendLabel}>
+            Recebido: {formatCurrency(totalPaid)}
+          </Text>
+        </View>
+
+        <View style={styles.legendRow}>
+          <View style={[styles.dot, { backgroundColor: "#64748B" }]} />
+          <Text style={styles.legendLabel}>
+            A receber: {formatCurrency(totalToReceive)}
+          </Text>
+        </View>
       </View>
     </View>
   );
 }
 
-/* ========================= Styles ========================= */
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+    backgroundColor: "#FFF",
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   title: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 10,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#475569",
+    textAlign: "center",
+    marginBottom: 16,
   },
-  chartWrapper: {
+  percentText: {
+    position: "absolute",
+    top: 85,
+    alignSelf: "center",
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#16A34A",
+  },
+  legend: {
+    marginTop: 20,
+    gap: 6,
+  },
+  legendRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  legendLabel: {
+    fontSize: 14,
+    color: "#475569",
+    fontWeight: "600",
   },
 });

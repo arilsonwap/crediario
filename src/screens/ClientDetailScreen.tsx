@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -10,9 +10,12 @@ import {
   Animated,
   Modal,
   TextInput,
+  StatusBar,
+  Pressable
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import {
   deleteClient,
@@ -36,27 +39,20 @@ export default function ClientDetailScreen() {
   const [msgText, setMsgText] = useState("");
 
   // ============================================================
-  // 🔄 Carrega cliente (inicial e atualizado via navegação)
+  // 🔄 Lógica de Carregamento
   // ============================================================
   useEffect(() => {
     const params = route.params as { client?: Client; clientId?: number } | undefined;
-
     if (params?.client) {
       setClient(params.client);
       setLoading(false);
-      return;
-    }
-
-    if (params?.clientId) {
+    } else if (params?.clientId) {
       const c = getClientById(params.clientId);
       if (c) setClient(c);
       setLoading(false);
     }
   }, [route.params]);
 
-  // ============================================================
-  // 🧭 Atualização automática ao retornar de outras telas
-  // ============================================================
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       if (client?.id) {
@@ -67,13 +63,21 @@ export default function ClientDetailScreen() {
     return unsubscribe;
   }, [navigation, client?.id]);
 
+  // Configurar Header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: "Detalhes do Cliente",
+      headerStyle: { backgroundColor: "#0056b3", elevation: 0, shadowOpacity: 0 },
+      headerTintColor: "#fff",
+      headerTitleStyle: { fontWeight: "700" },
+    });
+  }, [navigation]);
+
   // ============================================================
-  // ⚙️ Utilidades
+  // ⚙️ Ações e Helpers
   // ============================================================
   const formatDate = (date: Date) =>
-    `${String(date.getDate()).padStart(2, "0")}/${String(
-      date.getMonth() + 1
-    ).padStart(2, "0")}/${date.getFullYear()}`;
+    `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
 
   const showSuccess = (text: string) => {
     setMsgText(text);
@@ -84,9 +88,6 @@ export default function ClientDetailScreen() {
     ]).start();
   };
 
-  // ============================================================
-  // 📅 Definir próxima cobrança
-  // ============================================================
   const handleChangeDate = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === "android") setShowPicker(false);
     if (event.type === "dismissed") return;
@@ -101,21 +102,18 @@ export default function ClientDetailScreen() {
             const updated = { ...client, next_charge: formatted };
             setClient(updated);
             updateClient(updated);
-            showSuccess(`✅ Próxima cobrança: ${formatted}`);
+            showSuccess(`📅 Cobrança agendada: ${formatted}`);
           },
         },
       ]);
     }
   };
 
-  // ============================================================
-  // 🗑️ Excluir cliente
-  // ============================================================
   const handleDelete = () => {
     if (!client) return;
     Alert.alert(
       "Excluir cliente",
-      `Tem certeza que deseja excluir "${client.name}"?\n\n⚠️ Todos os pagamentos serão apagados.`,
+      `Tem certeza que deseja excluir "${client.name}"?\nTodos os pagamentos serão apagados.`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -123,7 +121,6 @@ export default function ClientDetailScreen() {
           style: "destructive",
           onPress: () => {
             deleteClient(client.id!);
-            Alert.alert("✅ Sucesso", "Cliente excluído!");
             navigation.goBack();
           },
         },
@@ -131,29 +128,19 @@ export default function ClientDetailScreen() {
     );
   };
 
-  // ============================================================
-  // 💰 Registrar baixa (pagamento) — AGORA COM VALIDAÇÃO
-  // ============================================================
   const confirmarBaixa = () => {
     if (!client) return;
-
     const valor = parseFloat(valorBaixa.replace(",", "."));
+    const restante = (client.value || 0) - (client.paid || 0);
+
     if (isNaN(valor) || valor <= 0) {
       Alert.alert("Erro", "Informe um valor válido.");
       return;
     }
 
-    const restante = (client.value || 0) - (client.paid || 0);
-
-    // ⚠️ nova verificação
     if (valor > restante) {
-      Alert.alert(
-        "Valor maior que o devido",
-        `O valor informado (R$ ${valor.toFixed(2)}) é maior do que o valor restante (R$ ${restante.toFixed(
-          2
-        )}).\n\nCorrija antes de prosseguir.`
-      );
-      return; // 🚫 impede a baixa
+      Alert.alert("Atenção", `O valor informado (R$ ${valor.toFixed(2)}) é maior que o restante.`);
+      return;
     }
 
     try {
@@ -161,194 +148,330 @@ export default function ClientDetailScreen() {
       const updated = { ...client, paid: (client.paid || 0) + valor };
       setClient(updated);
       setShowBaixaModal(false);
+      setValorBaixa("");
       showSuccess(`💰 Pagamento de R$ ${valor.toFixed(2)} registrado!`);
     } catch (error) {
       console.error(error);
-      Alert.alert("Erro", "Não foi possível registrar o pagamento.");
+      Alert.alert("Erro", "Não foi possível registrar.");
     }
   };
 
-  // ============================================================
-  // ⏳ Loading / Cliente inexistente
-  // ============================================================
-  if (loading)
-    return (
-      <View style={s.center}>
-        <Text>Carregando...</Text>
-      </View>
-    );
+  // Componente Avatar Grande
+  const BigAvatar = ({ name }: { name: string }) => (
+    <View style={s.avatarContainer}>
+      <Text style={s.avatarText}>{name ? name.charAt(0).toUpperCase() : "?"}</Text>
+    </View>
+  );
 
-  if (!client)
-    return (
-      <View style={s.center}>
-        <Text style={s.error}>Cliente não encontrado.</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.btnBack}>
-          <Text style={s.btnText}>⬅ Voltar</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  // Loading / Erro
+  if (loading) return <View style={s.center}><Text>Carregando...</Text></View>;
+  if (!client) return (
+    <View style={s.center}>
+      <Ionicons name="alert-circle-outline" size={50} color="#FF3B30" />
+      <Text style={s.error}>Cliente não encontrado.</Text>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={s.btnBack}>
+        <Text style={s.btnTextBack}>Voltar</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-  // ============================================================
-  // 🧾 Render principal
-  // ============================================================
   const restante = (client.value || 0) - (client.paid || 0);
 
   return (
-    <LinearGradient colors={["#E8F0FF", "#FFF"]} style={s.flex}>
-      <ScrollView contentContainerStyle={s.container}>
-        <Animated.View style={[s.successBox, { opacity: successMsg }]}>
+    <View style={s.flex}>
+      <StatusBar barStyle="light-content" backgroundColor="#0056b3" />
+      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {/* Fundo Gradiente Superior */}
+        <LinearGradient colors={["#0056b3", "#004494"]} style={s.headerBackground}>
+          <View style={s.headerContent}>
+            <BigAvatar name={client.name || ""} />
+            <Text style={s.clientName}>{client.name}</Text>
+            <View style={s.rowCenter}>
+              <Ionicons name="call" size={14} color="#BFDBFE" style={{marginRight: 4}}/>
+              <Text style={s.clientPhone}>{client.telefone || "Sem telefone"}</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Feedback Animado */}
+        <Animated.View style={[s.successToast, { opacity: successMsg, transform: [{ scale: successMsg }] }]}>
+          <Ionicons name="checkmark-circle" size={20} color="#FFF" />
           <Text style={s.successText}>{msgText}</Text>
         </Animated.View>
 
-        <Text style={s.title}>👤 {client.name}</Text>
+        <View style={s.bodyContainer}>
+          
+          {/* 📊 Card Financeiro Principal */}
+          <View style={s.card}>
+            <Text style={s.sectionTitle}>Resumo Financeiro</Text>
+            <View style={s.statsRow}>
+              <View style={s.statItem}>
+                <Text style={s.statLabel}>Total</Text>
+                <Text style={s.statValue}>{formatCurrency(client.value || 0)}</Text>
+              </View>
+              <View style={s.verticalDivider} />
+              <View style={s.statItem}>
+                <Text style={s.statLabel}>Pago</Text>
+                <Text style={[s.statValue, { color: "#16A34A" }]}>{formatCurrency(client.paid || 0)}</Text>
+              </View>
+              <View style={s.verticalDivider} />
+              <View style={s.statItem}>
+                <Text style={s.statLabel}>Falta</Text>
+                <Text style={[s.statValue, { color: restante > 0 ? "#EA580C" : "#94A3B8" }]}>
+                  {formatCurrency(restante >= 0 ? restante : 0)}
+                </Text>
+              </View>
+            </View>
+            
+            {/* Próxima Cobrança */}
+            <View style={s.divider} />
+            <View style={s.nextChargeRow}>
+              <View style={s.rowCenter}>
+                <Ionicons name="calendar-outline" size={18} color="#64748B" />
+                <Text style={s.nextChargeLabel}> Próxima Cobrança:</Text>
+              </View>
+              <Text style={s.nextChargeValue}>{client.next_charge || "Não definida"}</Text>
+            </View>
+          </View>
 
-        <View style={s.card}>
-          <Text style={s.label}>💰 Valor Total</Text>
-          <Text style={s.value}>{formatCurrency(client.value || 0)}</Text>
+          {/* ⚡ Ações Rápidas (Grid) */}
+          <Text style={s.sectionLabel}>Ações Rápidas</Text>
+          <View style={s.actionGrid}>
+            <TouchableOpacity 
+              style={[s.actionCard, { backgroundColor: "#EFF6FF" }]} 
+              onPress={() => setShowPicker(true)}
+            >
+              <Ionicons name="calendar" size={28} color="#0056b3" />
+              <Text style={[s.actionText, { color: "#0056b3" }]}>Agendar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[s.actionCard, { backgroundColor: "#F0FDF4" }]} 
+              onPress={() => setShowBaixaModal(true)}
+            >
+              <Ionicons name="cash" size={28} color="#16A34A" />
+              <Text style={[s.actionText, { color: "#16A34A" }]}>Receber</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 📂 Menu de Gerenciamento (Lista) */}
+          <Text style={s.sectionLabel}>Gerenciamento</Text>
+          <View style={s.menuList}>
+            <MenuButton 
+              icon="time-outline" label="Histórico de Pagamentos" 
+              onPress={() => navigation.navigate("PaymentHistory", { clientId: client.id })} 
+            />
+            <View style={s.divider} />
+            <MenuButton 
+              icon="document-text-outline" label="Log de Alterações" 
+              onPress={() => navigation.navigate("ClientLog", { clientId: client.id })} 
+            />
+            <View style={s.divider} />
+            <MenuButton 
+              icon="create-outline" label="Editar Dados" 
+              onPress={() => navigation.navigate("EditClient", { client })} 
+            />
+          </View>
+
+          {/* 🗑️ Botão Excluir */}
+          <TouchableOpacity onPress={handleDelete} style={s.deleteButton}>
+            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            <Text style={s.deleteText}>Excluir Cliente</Text>
+          </TouchableOpacity>
+
         </View>
+      </ScrollView>
 
-        <View style={s.card}>
-          <Text style={s.label}>✅ Pago</Text>
-          <Text style={[s.value, { color: "#34C759" }]}>{formatCurrency(client.paid || 0)}</Text>
-        </View>
-
-        <View style={s.card}>
-          <Text style={s.label}>💸 Restante</Text>
-          <Text
-            style={[
-              s.value,
-              { color: restante > 0 ? "#FF9500" : "#007AFF" },
-            ]}
-          >
-            {formatCurrency(restante >= 0 ? restante : 0)}
-          </Text>
-        </View>
-
-        <View style={s.card}>
-          <Text style={s.label}>📅 Próxima Cobrança</Text>
-          <Text style={s.value}>{client.next_charge || "Não definida"}</Text>
-        </View>
-
-        {/* 📅 Botões de ação */}
-        <TouchableOpacity onPress={() => setShowPicker(true)} style={s.btn}>
-          <LinearGradient colors={["#34C759", "#30D158"]} style={s.btnGrad}>
-            <Text style={s.btnText}>📅 Definir Próxima Cobrança</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => setShowBaixaModal(true)} style={s.btn}>
-          <LinearGradient colors={["#FF9500", "#FFB340"]} style={s.btnGrad}>
-            <Text style={s.btnText}>💰 Dar Baixa no Valor</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate("PaymentHistory", { clientId: client.id })}
-          style={s.btn}
-        >
-          <LinearGradient colors={["#0A84FF", "#5AC8FA"]} style={s.btnGrad}>
-            <Text style={s.btnText}>💳 Histórico de Pagamentos</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate("ClientLog", { clientId: client.id })}
-          style={s.btn}
-        >
-          <LinearGradient colors={["#5856D6", "#7D7AFF"]} style={s.btnGrad}>
-            <Text style={s.btnText}>📜 Ver Log de Alterações</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate("EditClient", { client })} style={s.btn}>
-          <LinearGradient colors={["#007AFF", "#0A84FF"]} style={s.btnGrad}>
-            <Text style={s.btnText}>✏️ Editar</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={handleDelete} style={s.btn}>
-          <LinearGradient colors={["#FF3B30", "#FF453A"]} style={s.btnGrad}>
-            <Text style={s.btnText}>🗑️ Excluir</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* Modal de baixa */}
-        <Modal visible={showBaixaModal} transparent animationType="fade">
-          <View style={s.modalBg}>
-            <View style={s.modal}>
-              <Text style={s.modalTitle}>💰 Dar Baixa</Text>
+      {/* MODAL DE BAIXA */}
+      <Modal visible={showBaixaModal} transparent animationType="slide">
+        <View style={s.modalOverlay}>
+          <View style={s.modalContainer}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Registrar Pagamento</Text>
+              <TouchableOpacity onPress={() => setShowBaixaModal(false)}>
+                <Ionicons name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={s.modalLabel}>Valor a receber (Restante: {formatCurrency(restante)})</Text>
+            <View style={s.inputContainer}>
+              <Text style={s.currencyPrefix}>R$</Text>
               <TextInput
                 style={s.input}
-                placeholder="Ex: 100.00"
+                placeholder="0,00"
                 keyboardType="decimal-pad"
                 value={valorBaixa}
                 onChangeText={setValorBaixa}
+                autoFocus
               />
-              <View style={s.modalBtns}>
-                <TouchableOpacity style={s.cancelBtn} onPress={() => setShowBaixaModal(false)}>
-                  <Text style={s.cancelText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.okBtn} onPress={confirmarBaixa}>
-                  <LinearGradient colors={["#FF9500", "#FFB340"]} style={s.btnGrad}>
-                    <Text style={s.btnText}>Confirmar</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
             </View>
-          </View>
-        </Modal>
 
-        {showPicker && (
-          <DateTimePicker
-            value={new Date()}
-            mode="date"
-            display="default"
-            onChange={handleChangeDate}
-          />
-        )}
-      </ScrollView>
-    </LinearGradient>
+            <TouchableOpacity style={s.confirmButton} onPress={confirmarBaixa}>
+              <Text style={s.confirmButtonText}>Confirmar Baixa</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Date Picker (Android/iOS Logic) */}
+      {showPicker && (
+        <DateTimePicker
+          value={new Date()}
+          mode="date"
+          display="default"
+          onChange={handleChangeDate}
+        />
+      )}
+    </View>
   );
 }
+
+// Componente auxiliar para item de menu
+const MenuButton = ({ icon, label, onPress }: any) => (
+  <Pressable 
+    onPress={onPress} 
+    style={({pressed}) => [s.menuItem, pressed && {backgroundColor: '#F8FAFC'}]}
+  >
+    <View style={s.rowCenter}>
+      <Ionicons name={icon} size={22} color="#475569" />
+      <Text style={s.menuText}>{label}</Text>
+    </View>
+    <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+  </Pressable>
+);
 
 // ============================================================
 // 🎨 Estilos
 // ============================================================
 const s = StyleSheet.create({
-  flex: { flex: 1 },
-  container: { flexGrow: 1, alignItems: "center", padding: 25 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 24, fontWeight: "800", color: "#007AFF", marginBottom: 20 },
+  flex: { flex: 1, backgroundColor: "#F1F5F9" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
+  scrollContent: { paddingBottom: 40 },
+  
+  // Header
+  headerBackground: {
+    paddingTop: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    alignItems: 'center',
+  },
+  headerContent: { alignItems: 'center' },
+  avatarContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FFFFFF33", // Transparente branco
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF66'
+  },
+  avatarText: { fontSize: 32, fontWeight: "bold", color: "#FFF" },
+  clientName: { fontSize: 22, fontWeight: "bold", color: "#FFF", marginBottom: 2 },
+  clientPhone: { fontSize: 14, color: "#BFDBFE" },
+  rowCenter: { flexDirection: 'row', alignItems: 'center' },
+
+  // Toast
+  successToast: {
+    position: 'absolute',
+    top: 10,
+    alignSelf: 'center',
+    backgroundColor: "#16A34A",
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    zIndex: 100,
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  successText: { color: "#FFF", fontWeight: "600", marginLeft: 8 },
+
+  // Body
+  bodyContainer: { paddingHorizontal: 20, marginTop: -25 },
+  
+  // Card Financeiro
   card: {
-    width: "100%",
     backgroundColor: "#FFF",
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-  },
-  label: { fontSize: 15, color: "#555", marginBottom: 4, fontWeight: "600" },
-  value: { fontSize: 17, fontWeight: "700", color: "#111" },
-  btn: { width: "100%", marginVertical: 6, borderRadius: 16, overflow: "hidden" },
-  btnGrad: { paddingVertical: 14, alignItems: "center" },
-  btnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
-  successBox: { backgroundColor: "#34C759", padding: 10, borderRadius: 10, marginBottom: 15 },
-  successText: { color: "#FFF", fontWeight: "700" },
-  modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modal: { backgroundColor: "#FFF", borderRadius: 20, padding: 24, width: "90%", maxWidth: 400 },
-  modalTitle: { fontSize: 22, fontWeight: "800", color: "#007AFF", textAlign: "center", marginBottom: 12 },
-  input: {
-    backgroundColor: "#F5F5F5",
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 18,
-    textAlign: "center",
+    padding: 20,
     marginBottom: 20,
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  modalBtns: { flexDirection: "row", gap: 10 },
-  cancelBtn: { flex: 1, backgroundColor: "#E0E0E0", alignItems: "center", paddingVertical: 12, borderRadius: 12 },
-  cancelText: { color: "#333", fontWeight: "700" },
-  okBtn: { flex: 1, borderRadius: 12, overflow: "hidden" },
-  btnBack: { backgroundColor: "#007AFF", padding: 12, borderRadius: 10 },
-  error: { fontSize: 18, color: "#FF3B30", marginBottom: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: "600", color: "#64748B", marginBottom: 15, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statItem: { alignItems: 'center', flex: 1 },
+  statLabel: { fontSize: 12, color: "#94A3B8", marginBottom: 4 },
+  statValue: { fontSize: 16, fontWeight: "700", color: "#1E293B" },
+  verticalDivider: { width: 1, height: 30, backgroundColor: "#E2E8F0" },
+  divider: { height: 1, backgroundColor: "#F1F5F9", marginVertical: 15 },
+  nextChargeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  nextChargeLabel: { fontSize: 14, color: "#64748B" },
+  nextChargeValue: { fontSize: 14, fontWeight: "600", color: "#0056b3" },
+
+  // Ações
+  sectionLabel: { fontSize: 16, fontWeight: "700", color: "#334155", marginBottom: 10, marginLeft: 4 },
+  actionGrid: { flexDirection: 'row', gap: 15, marginBottom: 25 },
+  actionCard: {
+    flex: 1,
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 1,
+  },
+  actionText: { marginTop: 8, fontWeight: "700", fontSize: 14 },
+
+  // Menu Lista
+  menuList: { backgroundColor: "#FFF", borderRadius: 16, marginBottom: 25, elevation: 2 },
+  menuItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
+  menuText: { fontSize: 16, color: "#334155", marginLeft: 12, fontWeight: '500' },
+
+  // Delete
+  deleteButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    marginBottom: 30
+  },
+  deleteText: { color: "#EF4444", fontWeight: "700", marginLeft: 8 },
+
+  // Modal Style
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalContainer: { backgroundColor: "#FFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: "700", color: "#1E293B" },
+  modalLabel: { fontSize: 14, color: "#64748B", marginBottom: 8 },
+  inputContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    borderBottomWidth: 2, 
+    borderBottomColor: "#E2E8F0", 
+    marginBottom: 24,
+    paddingBottom: 8
+  },
+  currencyPrefix: { fontSize: 24, color: "#94A3B8", fontWeight: '600', marginRight: 8 },
+  input: { flex: 1, fontSize: 32, fontWeight: "700", color: "#1E293B" },
+  confirmButton: { backgroundColor: "#16A34A", paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  confirmButtonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+
+  // Erros e Voltar
+  error: { fontSize: 18, color: "#FF3B30", marginVertical: 10 },
+  btnBack: { backgroundColor: "#0056b3", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  btnTextBack: { color: "#FFF", fontWeight: "bold" },
 });

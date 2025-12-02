@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
+  StatusBar,
+  ActivityIndicator,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRoute, useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+
 import {
   getPaymentsByClient,
   deletePayment,
@@ -17,7 +20,16 @@ import {
   Client,
   Payment,
 } from "../database/db";
+
 import { formatCurrency } from "../utils/formatCurrency";
+
+// 📌 Formata: "2025-01-15T18:32:10.123Z" → "janeiro de 2025"
+const formatMonth = (iso: string) => {
+  const date = new Date(iso);
+  const month = date.toLocaleDateString("pt-BR", { month: "long" });
+  const year = date.getFullYear();
+  return `${month} de ${year}`;
+};
 
 export default function PaymentHistoryScreen() {
   const { params }: any = useRoute();
@@ -26,21 +38,54 @@ export default function PaymentHistoryScreen() {
 
   const [client, setClient] = useState<Client | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // 🔄 Carrega cliente e pagamentos
+  // 🎨 Header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: "Histórico Financeiro",
+      headerStyle: { backgroundColor: "#0056b3", elevation: 0, shadowOpacity: 0 },
+      headerTintColor: "#fff",
+      headerTitleStyle: { fontWeight: "700" },
+    });
+  }, [navigation]);
+
+  // 🔄 Carrega dados
   useEffect(() => {
-    const c = getClientById(clientId);
-    setClient(c);
-    setPayments(getPaymentsByClient(clientId));
+    try {
+      const c = getClientById(clientId);
+      setClient(c);
+
+      const list = getPaymentsByClient(clientId);
+      // Ordenar por data DESC se vier bagunçado
+      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setPayments(list);
+    } finally {
+      setLoading(false);
+    }
   }, [clientId]);
 
-  // 🗑️ Excluir pagamento
+  // 🧩 Agrupa por mês
+  const grouped = useMemo(() => {
+    const groups: Record<string, Payment[]> = {};
+
+    payments.forEach((p) => {
+      const key = formatMonth(p.created_at);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(p);
+    });
+
+    return Object.entries(groups).map(([month, items]) => ({ month, items }));
+  }, [payments]);
+
+  // 🗑️ Excluir registro
   const handleDelete = (payment: Payment) => {
     if (!client) return;
 
     Alert.alert(
-      "Excluir pagamento",
-      `Remover ${formatCurrency(payment.valor)} de ${payment.data}?`,
+      "Excluir Pagamento",
+      `Deseja remover ${formatCurrency(payment.valor)}?`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -48,29 +93,19 @@ export default function PaymentHistoryScreen() {
           style: "destructive",
           onPress: () => {
             try {
-              // Apaga do banco e reverte o valor
               deletePayment(payment.id!);
 
-              const updated = { ...client, paid: (client.paid || 0) - payment.valor };
+              const updated = {
+                ...client,
+                paid: (client.paid || 0) - payment.valor,
+              };
+
               updateClient(updated);
               setClient(updated);
 
-              // Atualiza lista local
               setPayments((prev) => prev.filter((p) => p.id !== payment.id));
-
-              // Mostra confirmação
-              Alert.alert("✅ Sucesso", "Pagamento removido e saldo ajustado.", [
-                {
-                  text: "OK",
-                  onPress: () => {
-                    // Volta para tela de detalhes atualizada
-                    navigation.navigate("ClientDetail", { client: updated });
-                  },
-                },
-              ]);
-            } catch (error) {
-              console.error("Erro ao excluir pagamento:", error);
-              Alert.alert("Erro", "Não foi possível excluir o pagamento.");
+            } catch (e) {
+              Alert.alert("Erro", "Não foi possível excluir.");
             }
           },
         },
@@ -78,65 +113,215 @@ export default function PaymentHistoryScreen() {
     );
   };
 
-  // 💳 Renderiza item da lista
-  const renderItem = ({ item }: { item: Payment }) => (
-    <View style={s.card}>
-      <View>
-        <Text style={s.value}>{formatCurrency(item.valor)}</Text>
-        <Text style={s.date}>📅 {item.data}</Text>
+  // 📌 Render individual da timeline
+  const renderPaymentItem = (payment: Payment, index: number, total: number) => {
+    const isLast = index === total - 1;
+
+    const dateObj = new Date(payment.created_at);
+    const day = dateObj.getDate().toString().padStart(2, "0");
+
+    return (
+      <View style={s.timelineRow} key={payment.id}>
+        {/* Timeline */}
+        <View style={s.timelineCol}>
+          <View style={[s.line, isLast && s.lineHidden]} />
+          <View style={s.dotContainer}>
+            <View style={s.dot} />
+          </View>
+        </View>
+
+        {/* Card */}
+        <View style={s.cardContainer}>
+          <View style={s.card}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.amountText}>{formatCurrency(payment.valor)}</Text>
+              <View style={s.dateRow}>
+                <Ionicons
+                  name="calendar-outline"
+                  size={12}
+                  color="#94A3B8"
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={s.dateText}>Dia {day}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => handleDelete(payment)}
+              style={s.deleteBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
-      <TouchableOpacity style={s.delBtn} onPress={() => handleDelete(item)}>
-        <Text style={s.delText}>🗑️</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
+
+  if (loading)
+    return <ActivityIndicator size="large" color="#0056b3" style={{ flex: 1 }} />;
 
   return (
-    <LinearGradient colors={["#E8F0FF", "#FFFFFF"]} style={s.flex}>
-      <View style={s.container}>
-        <Text style={s.title}>💳 Histórico de Pagamentos</Text>
-        <Text style={s.sub}>{client?.name}</Text>
+    <View style={s.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0056b3" />
 
-        <FlatList
-          data={payments}
-          keyExtractor={(i) => i.id?.toString() ?? Math.random().toString()}
-          renderItem={renderItem}
-          ListEmptyComponent={<Text style={s.empty}>Nenhum pagamento registrado.</Text>}
-          showsVerticalScrollIndicator={false}
-        />
+      {/* Barra info */}
+      <View style={s.infoBar}>
+        <Text style={s.infoText}>
+          Extrato de <Text style={{ fontWeight: "bold" }}>{client?.name}</Text>
+        </Text>
 
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.btn}>
-          <LinearGradient colors={["#007AFF", "#0A84FF"]} style={s.btnGrad}>
-            <Text style={s.btnText}>⬅ Voltar</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        <View style={s.badge}>
+          <Text style={s.badgeText}>{payments.length} lançamentos</Text>
+        </View>
       </View>
-    </LinearGradient>
+
+      <FlatList
+        data={grouped}
+        keyExtractor={(item) => item.month}
+        contentContainerStyle={s.listContent}
+        renderItem={({ item }) => (
+          <View style={s.monthBlock}>
+            <Text style={s.monthTitle}>{item.month.toUpperCase()}</Text>
+            {item.items.map((p, i) => renderPaymentItem(p, i, item.items.length))}
+          </View>
+        )}
+        ListEmptyComponent={
+          <View style={s.emptyContainer}>
+            <View style={s.iconCircle}>
+              <Ionicons name="wallet-outline" size={40} color="#94A3B8" />
+            </View>
+
+            <Text style={s.emptyTitle}>Nenhum pagamento</Text>
+            <Text style={s.emptySub}>
+              Os pagamentos registrados aparecerão aqui.
+            </Text>
+          </View>
+        }
+      />
+    </View>
   );
 }
 
-// 🎨 Estilos
+// 🎨 Estilos — MANTIDOS IGUAIS
 const s = StyleSheet.create({
-  flex: { flex: 1 },
-  container: { flex: 1, padding: 20 },
-  title: { fontSize: 22, fontWeight: "800", color: "#007AFF", textAlign: "center" },
-  sub: { textAlign: "center", color: "#555", marginBottom: 20 },
+  container: { flex: 1, backgroundColor: "#F1F5F9" },
+
+  infoBar: {
+    backgroundColor: "#E2E8F0",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#CBD5E1",
+  },
+  infoText: { color: "#475569", fontSize: 13 },
+  badge: {
+    backgroundColor: "#FFF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  badgeText: { fontSize: 10, fontWeight: "700", color: "#0056b3" },
+
+  listContent: { padding: 20, paddingBottom: 40 },
+
+  monthBlock: { marginBottom: 24 },
+  monthTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#94A3B8",
+    marginBottom: 12,
+    marginLeft: 8,
+    letterSpacing: 0.5,
+  },
+
+  timelineRow: { flexDirection: "row", minHeight: 65 }, // ← reduzido!
+  timelineCol: { width: 30, alignItems: "center" },
+
+  line: {
+    width: 2,
+    backgroundColor: "#E2E8F0",
+    position: "absolute",
+    top: 14,
+    bottom: -14,
+    left: 14,
+  },
+  lineHidden: { display: "none" },
+
+  dotContainer: {
+    width: 30,
+    height: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#16A34A",
+    borderWidth: 2,
+    borderColor: "#FFF",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+
+  cardContainer: { flex: 1, paddingBottom: 8, paddingLeft: 10 },
+
   card: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#FFF",
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    padding: 16,
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  amountText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#16A34A",
+    marginBottom: 4,
+  },
+  dateRow: { flexDirection: "row", alignItems: "center" },
+  dateText: { fontSize: 13, color: "#94A3B8" },
+
+  deleteBtn: {
+    padding: 8,
+    backgroundColor: "#FEF2F2",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+  },
+
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 60,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
     elevation: 2,
   },
-  value: { fontSize: 18, fontWeight: "700", color: "#34C759" },
-  date: { fontSize: 14, color: "#555", marginTop: 2 },
-  delBtn: { backgroundColor: "#FF3B30", borderRadius: 8, padding: 8 },
-  delText: { color: "#FFF", fontSize: 18 },
-  empty: { textAlign: "center", marginTop: 50, color: "#666" },
-  btn: { marginTop: 15, borderRadius: 16, overflow: "hidden" },
-  btnGrad: { paddingVertical: 12, alignItems: "center" },
-  btnText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
+  emptyTitle: { fontSize: 18, fontWeight: "600", color: "#475569", marginBottom: 8 },
+  emptySub: { fontSize: 14, color: "#94A3B8" },
 });

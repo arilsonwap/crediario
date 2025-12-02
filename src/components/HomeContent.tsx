@@ -1,183 +1,286 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
-import GradientButton from "./GradientButton";
-import { CalendarIcon } from "./CalendarIcon";
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 type Props = {
   navigation: any;
   todayCount: number;
-  onPressHoje: () => void; // ✅ nova prop
+  onPressHoje: () => void;
 };
+
+const { width } = Dimensions.get("window");
+const CARD_WIDTH = (width - 48 - 15) / 2; // Largura da tela - padding horizontal - gap / 2
 
 export default function HomeContent({ navigation, todayCount, onPressHoje }: Props) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔹 Animação suave do contador
+  // 🔹 Animação do contador (só pulsa se tiver cobrança)
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.08, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [pulseAnim]);
+    if (todayCount > 0) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      pulseAnim.setValue(1); // Reseta se for 0
+    }
+  }, [todayCount, pulseAnim]);
 
   return (
     <View style={styles.container}>
-      {/* 💳 Crediário */}
-      <View style={[styles.headerBox, styles.shadow]}>
-        <Text style={styles.header}>💳 CREDIÁRIO</Text>
-        <Text style={styles.subtitle}>
-          Gerencie seus clientes e cobranças com praticidade
-        </Text>
-      </View>
-
-      {/* 🟡 Cobranças Hoje */}
-      <TouchableOpacity activeOpacity={0.9} onPress={onPressHoje}>
-        <View style={[styles.chargeCard, styles.shadow]}>
-          <View style={styles.row}>
-            <View style={styles.iconCircle}>
-              <CalendarIcon size={52} showMonth />
+      
+      {/* 🚨 HERO CARD: Cobranças Hoje */}
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={onPressHoje}
+        style={styles.heroWrapper}
+      >
+        <LinearGradient
+          colors={todayCount > 0 ? ["#FFF7ED", "#FFEDD5"] : ["#F0FDF4", "#DCFCE7"]}
+          style={[styles.heroCard, styles.shadow]}
+        >
+          <View style={styles.heroContent}>
+            <View style={[
+              styles.iconCircle, 
+              { backgroundColor: todayCount > 0 ? "#FDBA74" : "#86EFAC" }
+            ]}>
+              <Ionicons 
+                name={todayCount > 0 ? "alert-outline" : "checkmark-circle-outline"} 
+                size={32} 
+                color={todayCount > 0 ? "#C2410C" : "#15803D"} 
+              />
             </View>
-
-            <View style={styles.textCenter}>
-              <View style={styles.row}>
-                <Text style={styles.chargeTitle}>Cobranças Hoje</Text>
-                <Animated.View
-                  style={[styles.countBadge, { transform: [{ scale: pulseAnim }] }]}
-                >
-                  <Text style={styles.countText}>{todayCount}</Text>
-                </Animated.View>
-              </View>
-
-              <Text style={styles.chargeSubtitle}>
+            
+            <View style={styles.heroTextContainer}>
+              <Text style={[
+                styles.heroTitle, 
+                { color: todayCount > 0 ? "#9A3412" : "#166534" }
+              ]}>
+                Cobranças de Hoje
+              </Text>
+              <Text style={styles.heroSubtitle}>
                 {todayCount === 0
-                  ? "Nenhum cliente com cobrança hoje"
-                  : todayCount === 1
-                  ? "1 cliente vencendo hoje"
-                  : `${todayCount} clientes vencendo hoje`}
+                  ? "Tudo em dia! Nenhuma cobrança."
+                  : `${todayCount} cliente(s) para cobrar.`}
               </Text>
             </View>
+
+            {/* Badge Animado */}
+            {todayCount > 0 && (
+              <Animated.View style={[styles.badge, { transform: [{ scale: pulseAnim }] }]}>
+                <Text style={styles.badgeText}>{todayCount}</Text>
+              </Animated.View>
+            )}
           </View>
-        </View>
+        </LinearGradient>
       </TouchableOpacity>
 
-      {/* 🔘 Botões principais */}
-      <View style={[styles.card, styles.shadow]}>
-        <GradientButton
-          title="➕ Novo Cliente"
-          colors={["#007AFF", "#5856D6"]}
-          onPress={() => navigation.navigate("AddClient")}
+      {/* 📌 Título da Seção */}
+      <Text style={styles.sectionTitle}>ACESSO RÁPIDO</Text>
+
+      {/* 🔲 GRID DE AÇÕES */}
+      <View style={styles.gridContainer}>
+        
+        <MenuCard 
+          title="Novo Cliente" 
+          icon="person-add" 
+          color="#2563EB" // Azul
+          bgColor="#EFF6FF"
+          onPress={() => navigation.navigate("AddClient")} 
         />
-        <GradientButton
-          title="📋 Ver Clientes"
-          colors={["#34C759", "#30D158"]}
-          onPress={() => navigation.navigate("ClientList")}
+
+        <MenuCard 
+          title="Ver Clientes" 
+          icon="people" 
+          color="#059669" // Verde Esmeralda
+          bgColor="#ECFDF5"
+          onPress={() => navigation.navigate("ClientList")} 
         />
-        <GradientButton
-          title="📅 Próximas Cobranças"
-          colors={["#FF9500", "#FFB84D"]}
-          onPress={() => navigation.navigate("UpcomingCharges")}
+
+        <MenuCard 
+          title="Próx. Cobranças" 
+          icon="calendar" 
+          color="#EA580C" // Laranja
+          bgColor="#FFF7ED"
+          onPress={() => navigation.navigate("UpcomingCharges")} 
         />
-        <GradientButton
-          title="📊 Relatórios Financeiros"
-          colors={["#5856D6", "#AF52DE"]}
-          onPress={() => navigation.navigate("Reports")}
+
+        <MenuCard 
+          title="Relatórios" 
+          icon="bar-chart" 
+          color="#7C3AED" // Roxo
+          bgColor="#F5F3FF"
+          onPress={() => navigation.navigate("Reports")} 
         />
-        <GradientButton
-          title="💾 Fazer Backup"
-          colors={["#FF3B30", "#FF453A"]}
+        
+        {/* Card Largo para Backup (Opcional) */}
+        <TouchableOpacity 
+          style={[styles.fullWidthCard, styles.shadow]} 
           onPress={() => navigation.navigate("Backup")}
-        />
+        >
+           <View style={[styles.miniIcon, { backgroundColor: "#F1F5F9" }]}>
+             <Ionicons name="cloud-upload-outline" size={20} color="#475569" />
+           </View>
+           <Text style={styles.fullWidthText}>Fazer Backup dos Dados</Text>
+           <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+        </TouchableOpacity>
+
       </View>
     </View>
   );
 }
 
-/* 🎨 Estilos harmonizados */
+// 🧱 Componente de Card do Menu
+const MenuCard = ({ title, icon, color, bgColor, onPress }: any) => (
+  <TouchableOpacity 
+    style={[styles.menuCard, styles.shadow, { backgroundColor: "#FFF" }]} 
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={[styles.menuIconContainer, { backgroundColor: bgColor }]}>
+      <Ionicons name={icon} size={28} color={color} />
+    </View>
+    <Text style={styles.menuTitle}>{title}</Text>
+  </TouchableOpacity>
+);
+
+/* 🎨 Estilos Modernos */
 const styles = StyleSheet.create({
-  container: { alignItems: "center", width: "100%" },
+  container: { 
+    width: "100%",
+    paddingBottom: 20
+  },
+
   shadow: {
-    shadowColor: "#000",
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 3,
   },
 
-  headerBox: {
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingVertical: 25,
-    paddingHorizontal: 15,
+  // Hero Card
+  heroWrapper: { marginBottom: 25 },
+  heroCard: {
     borderRadius: 20,
-    width: "100%",
-    marginBottom: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)"
   },
-  header: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#007AFF",
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 8,
-  },
-
-  // 🟡 Cobranças Hoje
-  chargeCard: {
-    backgroundColor: "#F5F9FF",
-    borderRadius: 20,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    marginBottom: 25,
-    width: "100%",
+  heroContent: {
+    flexDirection: "row",
     alignItems: "center",
   },
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#E5E5EA",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginRight: 16,
+    opacity: 0.9
   },
-  textCenter: { alignItems: "center" },
-  chargeTitle: {
-    fontSize: 18,
+  heroTextContainer: { flex: 1 },
+  heroTitle: {
+    fontSize: 16,
     fontWeight: "800",
-    color: "#007AFF",
-    marginRight: 6,
+    marginBottom: 4,
   },
-  countBadge: {
-    backgroundColor: "#FFD60A",
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: "#FFF",
-  },
-  countText: { fontSize: 14, fontWeight: "900", color: "#000" },
-  chargeSubtitle: {
+  heroSubtitle: {
     fontSize: 13,
-    color: "#555",
-    marginTop: 4,
+    color: "#64748B",
+    lineHeight: 18,
+  },
+  badge: {
+    backgroundColor: "#EF4444",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFF",
+    shadowColor: "#EF4444",
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4
+  },
+  badgeText: { color: "#FFF", fontWeight: "bold", fontSize: 14 },
+
+  // Grid
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#94A3B8",
+    marginBottom: 15,
+    marginLeft: 4,
+    letterSpacing: 0.5
+  },
+  gridContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 15, // Gap vertical (se suportado) ou margin
+  },
+  menuCard: {
+    width: CARD_WIDTH,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15, // Fallback para gap
+  },
+  menuIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  menuTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#334155",
     textAlign: "center",
   },
 
-  // 🔘 Card de Botões
-  card: {
+  // Full Width Card (Backup)
+  fullWidthCard: {
     width: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 25,
-    marginBottom: 20,
-    gap: 12,
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    marginTop: 5,
   },
+  miniIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12
+  },
+  fullWidthText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#475569",
+    fontWeight: "600"
+  }
 });

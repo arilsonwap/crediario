@@ -51,10 +51,10 @@ function gerarDataCobranca() {
   const dias = Math.floor(Math.random() * 45) + 1; // entre 1 e 45 dias
   const futura = new Date(hoje);
   futura.setDate(hoje.getDate() + dias);
-  const d = futura.getDate().toString().padStart(2, "0");
-  const m = (futura.getMonth() + 1).toString().padStart(2, "0");
   const y = futura.getFullYear();
-  return `${d}/${m}/${y}`;
+  const m = (futura.getMonth() + 1).toString().padStart(2, "0");
+  const d = futura.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${d}`; // ISO: yyyy-mm-dd
 }
 
 export async function seedClients() {
@@ -82,3 +82,4 @@ export async function seedClients() {
 
   console.log("✅ 20 clientes brasileiros aleatórios adicionados com sucesso!");
 }
+

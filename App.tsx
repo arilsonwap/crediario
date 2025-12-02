@@ -4,7 +4,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import AppNavigator from "./src/navigation/AppNavigator";
-import { initDB, fixDatabaseStructure } from "./src/database/db";
+import { ensureDatabaseDirectory, initDB, fixDatabaseStructure } from "./src/database/db";
 import { theme } from "./src/theme/theme";
 
 export default function App() {
@@ -13,9 +13,12 @@ export default function App() {
   useEffect(() => {
     const initialize = async () => {
       try {
-        console.log("🟡 Verificando e corrigindo estrutura do banco...");
-        fixDatabaseStructure(); // 🔧 Corrige colunas antes de qualquer uso
-        await initDB(); // ⚡ Cria tabelas se não existirem
+        console.log("🟡 Preparando diretório SQLite...");
+        await ensureDatabaseDirectory(); // ⚠️ Cria pasta SQLite (Android precisa)
+        console.log("🟡 Inicializando banco de dados...");
+        initDB(); // ⚡ Cria tabelas primeiro
+        console.log("🟡 Verificando e corrigindo estrutura...");
+        fixDatabaseStructure(); // 🔧 Corrige colunas depois que tabelas existem
         console.log("✅ Banco pronto e estrutura verificada!");
         setReady(true);
       } catch (error) {
