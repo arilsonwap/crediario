@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { backupLocal, backupFirebase } from "../utils/backup";
+import { useAuth } from "../contexts/AuthContext";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -24,6 +25,7 @@ type BackupEntry = {
 
 export default function BackupScreen() {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   const [history, setHistory] = useState<BackupEntry[]>([]);
   const [lastBackup, setLastBackup] = useState<BackupEntry | null>(null);
@@ -84,9 +86,14 @@ export default function BackupScreen() {
   };
 
   const handleBackupNuvem = async () => {
+    if (!user) {
+      notify("❌ Erro", "Você precisa estar logado para fazer backup na nuvem.");
+      return;
+    }
+
     setLoading("cloud_bkp");
     try {
-      await backupFirebase("usuario_demo");
+      await backupFirebase(user.uid);
       await saveBackupHistory({ type: "cloud", timestamp: Date.now() });
       notify("☁️ Sucesso", "Dados enviados para a nuvem!");
     } catch (e) {

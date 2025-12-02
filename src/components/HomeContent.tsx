@@ -7,35 +7,30 @@ type Props = {
   navigation: any;
   todayCount: number;
   onPressHoje: () => void;
+  onSync?: () => void;
+  syncing?: boolean;
+  onLogout?: () => void;
 };
 
 const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 48 - 15) / 2; // Largura da tela - padding horizontal - gap / 2
+const CARD_WIDTH = (width - 48 - 15) / 2; // Largura responsiva para 2 colunas
 
-export default function HomeContent({ navigation, todayCount, onPressHoje }: Props) {
+export default function HomeContent({ navigation, todayCount, onPressHoje, onSync, syncing, onLogout }: Props) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔹 Animação do contador (só pulsa se tiver cobrança)
+  // 🔹 Animação do contador
   useEffect(() => {
     if (todayCount > 0) {
       const loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
         ])
       );
       loop.start();
       return () => loop.stop();
     } else {
-      pulseAnim.setValue(1); // Reseta se for 0
+      pulseAnim.setValue(1);
     }
   }, [todayCount, pulseAnim]);
 
@@ -43,11 +38,7 @@ export default function HomeContent({ navigation, todayCount, onPressHoje }: Pro
     <View style={styles.container}>
       
       {/* 🚨 HERO CARD: Cobranças Hoje */}
-      <TouchableOpacity 
-        activeOpacity={0.9} 
-        onPress={onPressHoje}
-        style={styles.heroWrapper}
-      >
+      <TouchableOpacity activeOpacity={0.9} onPress={onPressHoje} style={styles.heroWrapper}>
         <LinearGradient
           colors={todayCount > 0 ? ["#FFF7ED", "#FFEDD5"] : ["#F0FDF4", "#DCFCE7"]}
           style={[styles.heroCard, styles.shadow]}
@@ -65,20 +56,14 @@ export default function HomeContent({ navigation, todayCount, onPressHoje }: Pro
             </View>
             
             <View style={styles.heroTextContainer}>
-              <Text style={[
-                styles.heroTitle, 
-                { color: todayCount > 0 ? "#9A3412" : "#166534" }
-              ]}>
+              <Text style={[styles.heroTitle, { color: todayCount > 0 ? "#9A3412" : "#166534" }]}>
                 Cobranças de Hoje
               </Text>
               <Text style={styles.heroSubtitle}>
-                {todayCount === 0
-                  ? "Tudo em dia! Nenhuma cobrança."
-                  : `${todayCount} cliente(s) para cobrar.`}
+                {todayCount === 0 ? "Tudo em dia!" : `${todayCount} cliente(s) para cobrar.`}
               </Text>
             </View>
 
-            {/* Badge Animado */}
             {todayCount > 0 && (
               <Animated.View style={[styles.badge, { transform: [{ scale: pulseAnim }] }]}>
                 <Text style={styles.badgeText}>{todayCount}</Text>
@@ -88,65 +73,86 @@ export default function HomeContent({ navigation, todayCount, onPressHoje }: Pro
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* 📌 Título da Seção */}
-      <Text style={styles.sectionTitle}>ACESSO RÁPIDO</Text>
+      {/* 📌 Título: Acesso Rápido */}
+      <Text style={styles.sectionTitle}>MENU PRINCIPAL</Text>
 
-      {/* 🔲 GRID DE AÇÕES */}
+      {/* 🔲 GRID DE AÇÕES (4 Itens) */}
       <View style={styles.gridContainer}>
-        
         <MenuCard 
-          title="Novo Cliente" 
-          icon="person-add" 
-          color="#2563EB" // Azul
-          bgColor="#EFF6FF"
+          title="Novo Cliente" icon="person-add" 
+          color="#2563EB" bgColor="#EFF6FF"
           onPress={() => navigation.navigate("AddClient")} 
         />
-
         <MenuCard 
-          title="Ver Clientes" 
-          icon="people" 
-          color="#059669" // Verde Esmeralda
-          bgColor="#ECFDF5"
+          title="Ver Clientes" icon="people" 
+          color="#059669" bgColor="#ECFDF5"
           onPress={() => navigation.navigate("ClientList")} 
         />
-
         <MenuCard 
-          title="Próx. Cobranças" 
-          icon="calendar" 
-          color="#EA580C" // Laranja
-          bgColor="#FFF7ED"
+          title="Próx. Cobranças" icon="calendar" 
+          color="#EA580C" bgColor="#FFF7ED"
           onPress={() => navigation.navigate("UpcomingCharges")} 
         />
+        <MenuCard
+          title="Relatórios" icon="bar-chart"
+          color="#7C3AED" bgColor="#F5F3FF"
+          onPress={() => navigation.navigate("Reports")}
+        />
+      </View>
 
-        <MenuCard 
-          title="Relatórios" 
-          icon="bar-chart" 
+      {/* 📌 Título: Sistema */}
+      <View style={styles.dividerBox}>
+        <Text style={styles.sectionTitle}>SISTEMA & DADOS</Text>
+      </View>
+
+      {/* 📋 LISTA DE SISTEMA (3 Itens - Estilo Unificado) */}
+      <View style={styles.systemList}>
+        
+        {/* Sincronizar */}
+        {onSync && (
+          <SystemCard
+            title={syncing ? "Sincronizando..." : "Sincronizar Nuvem"}
+            subtitle="Enviar dados para o Firebase"
+            icon={syncing ? "sync" : "cloud-upload"}
+            color="#2563EB" // Azul
+            bgColor="#EFF6FF"
+            onPress={onSync}
+            disabled={syncing}
+          />
+        )}
+
+        {/* Backup */}
+        <SystemCard
+          title="Gerenciar Backups"
+          subtitle="Backup local e restauração"
+          icon="shield-checkmark"
           color="#7C3AED" // Roxo
           bgColor="#F5F3FF"
-          onPress={() => navigation.navigate("Reports")} 
-        />
-        
-        {/* Card Largo para Backup (Opcional) */}
-        <TouchableOpacity 
-          style={[styles.fullWidthCard, styles.shadow]} 
           onPress={() => navigation.navigate("Backup")}
-        >
-           <View style={[styles.miniIcon, { backgroundColor: "#F1F5F9" }]}>
-             <Ionicons name="cloud-upload-outline" size={20} color="#475569" />
-           </View>
-           <Text style={styles.fullWidthText}>Fazer Backup dos Dados</Text>
-           <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-        </TouchableOpacity>
+        />
 
+        {/* Logout */}
+        {onLogout && (
+          <SystemCard
+            title="Sair da Conta"
+            subtitle="Fazer logout seguro"
+            icon="log-out"
+            color="#DC2626" // Vermelho
+            bgColor="#FEF2F2"
+            onPress={onLogout}
+            isDestructive
+          />
+        )}
       </View>
+
     </View>
   );
 }
 
-// 🧱 Componente de Card do Menu
+// 🧱 Componente: Card do Grid (Quadrado)
 const MenuCard = ({ title, icon, color, bgColor, onPress }: any) => (
   <TouchableOpacity 
-    style={[styles.menuCard, styles.shadow, { backgroundColor: "#FFF" }]} 
+    style={[styles.menuCard, styles.shadow]} 
     onPress={onPress}
     activeOpacity={0.7}
   >
@@ -157,130 +163,102 @@ const MenuCard = ({ title, icon, color, bgColor, onPress }: any) => (
   </TouchableOpacity>
 );
 
+// 🧱 Componente: Card de Sistema (Horizontal)
+// Agora padronizado com o mesmo raio de borda e sombra do grid
+const SystemCard = ({ title, subtitle, icon, color, bgColor, onPress, disabled, isDestructive }: any) => (
+  <TouchableOpacity
+    style={[styles.systemCard, styles.shadow, disabled && { opacity: 0.7 }]}
+    onPress={onPress}
+    disabled={disabled}
+    activeOpacity={0.7}
+  >
+    <View style={[styles.miniIcon, { backgroundColor: bgColor }]}>
+      <Ionicons name={icon} size={22} color={color} />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={[styles.systemTitle, isDestructive && { color: color }]}>{title}</Text>
+      <Text style={styles.systemSubtitle}>{subtitle}</Text>
+    </View>
+    <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+  </TouchableOpacity>
+);
+
 /* 🎨 Estilos Modernos */
 const styles = StyleSheet.create({
   container: { 
     width: "100%",
-    paddingBottom: 20
+    paddingBottom: 40
   },
 
+  // Sombra unificada para todos os cards
   shadow: {
     shadowColor: "#64748B",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+    backgroundColor: "#FFF", // Importante para sombra no Android
   },
 
   // Hero Card
-  heroWrapper: { marginBottom: 25 },
+  heroWrapper: { marginBottom: 24 },
   heroCard: {
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.05)"
   },
-  heroContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  heroContent: { flexDirection: "row", alignItems: "center" },
   iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 16,
-    opacity: 0.9
+    width: 52, height: 52, borderRadius: 26,
+    alignItems: "center", justifyContent: "center", marginRight: 16
   },
   heroTextContainer: { flex: 1 },
-  heroTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: "#64748B",
-    lineHeight: 18,
-  },
+  heroTitle: { fontSize: 16, fontWeight: "800", marginBottom: 2 },
+  heroSubtitle: { fontSize: 13, color: "#64748B" },
   badge: {
-    backgroundColor: "#EF4444",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFF",
-    shadowColor: "#EF4444",
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4
+    backgroundColor: "#EF4444", width: 28, height: 28, borderRadius: 14,
+    alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFF"
   },
-  badgeText: { color: "#FFF", fontWeight: "bold", fontSize: 14 },
+  badgeText: { color: "#FFF", fontWeight: "bold", fontSize: 12 },
 
-  // Grid
+  // Títulos de Seção
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#94A3B8",
-    marginBottom: 15,
-    marginLeft: 4,
-    letterSpacing: 0.5
+    fontSize: 12, fontWeight: "700", color: "#94A3B8",
+    marginBottom: 12, marginLeft: 4, letterSpacing: 0.8, textTransform: "uppercase"
   },
+  dividerBox: { marginTop: 10 },
+
+  // GRID (2 colunas)
   gridContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 15, // Gap vertical (se suportado) ou margin
+    flexDirection: "row", flexWrap: "wrap",
+    justifyContent: "space-between", gap: 15, marginBottom: 10
   },
   menuCard: {
     width: CARD_WIDTH,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 15, // Fallback para gap
+    paddingVertical: 20, paddingHorizontal: 16,
+    borderRadius: 20, // 🟡 Raio igual ao do sistema
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 15,
   },
   menuIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
+    width: 50, height: 50, borderRadius: 18,
+    alignItems: "center", justifyContent: "center", marginBottom: 10,
   },
-  menuTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#334155",
-    textAlign: "center",
-  },
+  menuTitle: { fontSize: 14, fontWeight: "600", color: "#334155" },
 
-  // Full Width Card (Backup)
-  fullWidthCard: {
+  // LISTA SISTEMA (Vertical)
+  systemList: { gap: 12 }, // Espaçamento uniforme
+  systemCard: {
     width: "100%",
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row", alignItems: "center",
     padding: 16,
-    marginTop: 5,
+    borderRadius: 20, // 🟡 Raio igual ao do grid para consistência
   },
   miniIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12
+    width: 40, height: 40, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center', marginRight: 14
   },
-  fullWidthText: {
-    flex: 1,
-    fontSize: 15,
-    color: "#475569",
-    fontWeight: "600"
-  }
+  systemTitle: { fontSize: 15, color: "#334155", fontWeight: "600" },
+  systemSubtitle: { fontSize: 12, color: "#94A3B8", marginTop: 2 },
 });

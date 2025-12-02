@@ -4,6 +4,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import AppNavigator from "./src/navigation/AppNavigator";
+import { AuthProvider } from "./src/contexts/AuthContext";
 import { ensureDatabaseDirectory, initDB, fixDatabaseStructure } from "./src/database/db";
 import { theme } from "./src/theme/theme";
 
@@ -39,40 +40,42 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer
-        theme={{
-          dark: true,
-          colors: {
-            primary: theme.colors.primary,
-            background: theme.colors.background,
-            card: theme.colors.background,
-            text: theme.colors.text,
-            border: theme.colors.cardBorder,
-            notification: theme.colors.danger,
-          },
-          fonts: {
-            regular: {
-              fontFamily: 'System',
-              fontWeight: '400',
+      <AuthProvider>
+        <NavigationContainer
+          theme={{
+            dark: true,
+            colors: {
+              primary: theme.colors.primary,
+              background: theme.colors.background,
+              card: theme.colors.background,
+              text: theme.colors.text,
+              border: theme.colors.cardBorder,
+              notification: theme.colors.danger,
             },
-            medium: {
-              fontFamily: 'System',
-              fontWeight: '500',
+            fonts: {
+              regular: {
+                fontFamily: 'System',
+                fontWeight: '400',
+              },
+              medium: {
+                fontFamily: 'System',
+                fontWeight: '500',
+              },
+              bold: {
+                fontFamily: 'System',
+                fontWeight: '700',
+              },
+              heavy: {
+                fontFamily: 'System',
+                fontWeight: '900',
+              },
             },
-            bold: {
-              fontFamily: 'System',
-              fontWeight: '700',
-            },
-            heavy: {
-              fontFamily: 'System',
-              fontWeight: '900',
-            },
-          },
-        }}
-      >
-        <StatusBar style="light" />
-        <AppNavigator />
-      </NavigationContainer>
+          }}
+        >
+          <StatusBar style="light" />
+          <AppNavigator />
+        </NavigationContainer>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

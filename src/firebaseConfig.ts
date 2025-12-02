@@ -6,23 +6,59 @@ import {
   deleteDoc,
   onSnapshot,
   doc,
+  updateDoc,
+  getDocs,
+  setDoc,
+  query,
+  where,
 } from "firebase/firestore";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User,
+} from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAKbV8995J49mnFPl9_3QuVkRFdtMOx86U",
-  authDomain: "jogos2-d34ac.firebaseapp.com",
-  projectId: "jogos2-d34ac",
-  storageBucket: "jogos2-d34ac.appspot.com", // ✅ corrigido
-  messagingSenderId: "64016555551",
-  appId: "1:64016555551:web:982a9e43417cd7f565bf2a",
-  measurementId: "G-TN6SWJRV37",
+  apiKey: "AIzaSyAzQcyWf2argX07xwZaEpWmht7Ty74haHI",
+  authDomain: "crediario-app.firebaseapp.com",
+  projectId: "crediario-app",
+  storageBucket: "crediario-app.firebasestorage.app",
+  messagingSenderId: "464413033372",
+  appId: "1:464413033372:web:67344359b50089bc3ffe59",
 };
 
 // ✅ Evita inicializar o app mais de uma vez
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// ✅ Inicializa o Firestore
-const db = getFirestore(app);
+// ✅ Inicializa os serviços do Firebase
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const storage = getStorage(app);
 
-// ✅ Exporta utilitários usados no restante do app
-export { db, collection, addDoc, deleteDoc, onSnapshot, doc };
+// ✅ Exporta utilitários do Firestore
+export {
+  collection,
+  addDoc,
+  deleteDoc,
+  onSnapshot,
+  doc,
+  updateDoc,
+  getDocs,
+  setDoc,
+  query,
+  where,
+};
+
+// ✅ Exporta utilitários do Authentication
+export {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  type User,
+};
