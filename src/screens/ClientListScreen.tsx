@@ -16,7 +16,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { getAllClients, Client } from "../database/db";
 import { formatCurrency } from "../utils/formatCurrency";
 
-const ClientListScreen = ({ navigation }: any) => {
+export default function ClientListScreen({ navigation }: any) {
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState("");
 
@@ -178,7 +178,7 @@ const ClientListScreen = ({ navigation }: any) => {
       </LinearGradient>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
@@ -325,5 +325,3 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
   },
 });
-
-export default ClientListScreen;
