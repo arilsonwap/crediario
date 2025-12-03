@@ -1,13 +1,4 @@
-import {
-  db,
-  collection,
-  doc,
-  setDoc,
-  getDocs,
-  query,
-  where,
-  onSnapshot,
-} from "../firebaseConfig";
+import { firebaseFirestore } from "../firebaseConfig";
 import {
   getAllClients,
   addClient,
@@ -18,7 +9,7 @@ import {
 } from "../database/db";
 
 // ============================================================
-// 🔄 Serviço de Sincronização com Firebase Firestore
+// 🔄 Serviço de Sincronização com Firebase Firestore Nativo
 // ============================================================
 
 /**
@@ -30,21 +21,24 @@ export const syncClientsToFirestore = async (
   try {
     console.log("🔄 Sincronizando clientes para Firestore...");
     const clients = getAllClients();
-    const batch: Promise<void>[] = [];
+    const batch = firebaseFirestore.batch();
 
     for (const client of clients) {
       if (!client.id) continue;
 
-      const docRef = doc(db, "users", userId, "clients", String(client.id));
-      batch.push(
-        setDoc(docRef, {
-          ...client,
-          updatedAt: new Date().toISOString(),
-        })
-      );
+      const docRef = firebaseFirestore
+        .collection("users")
+        .doc(userId)
+        .collection("clients")
+        .doc(String(client.id));
+
+      batch.set(docRef, {
+        ...client,
+        updatedAt: new Date().toISOString(),
+      });
     }
 
-    await Promise.all(batch);
+    await batch.commit();
     console.log(`✅ ${clients.length} clientes sincronizados com sucesso!`);
   } catch (error) {
     console.error("❌ Erro ao sincronizar clientes:", error);
@@ -60,8 +54,12 @@ export const syncClientsFromFirestore = async (
 ): Promise<void> => {
   try {
     console.log("📥 Baixando clientes do Firestore...");
-    const clientsRef = collection(db, "users", userId, "clients");
-    const snapshot = await getDocs(clientsRef);
+    const clientsRef = firebaseFirestore
+      .collection("users")
+      .doc(userId)
+      .collection("clients");
+
+    const snapshot = await clientsRef.get();
 
     let count = 0;
     snapshot.forEach((doc) => {
@@ -99,30 +97,26 @@ export const syncPaymentsToFirestore = async (
   try {
     console.log(`🔄 Sincronizando pagamentos do cliente ${clientId}...`);
     const payments = getPaymentsByClient(clientId);
-    const batch: Promise<void>[] = [];
+    const batch = firebaseFirestore.batch();
 
     for (const payment of payments) {
       if (!payment.id) continue;
 
-      const docRef = doc(
-        db,
-        "users",
-        userId,
-        "clients",
-        String(clientId),
-        "payments",
-        String(payment.id)
-      );
+      const docRef = firebaseFirestore
+        .collection("users")
+        .doc(userId)
+        .collection("clients")
+        .doc(String(clientId))
+        .collection("payments")
+        .doc(String(payment.id));
 
-      batch.push(
-        setDoc(docRef, {
-          ...payment,
-          updatedAt: new Date().toISOString(),
-        })
-      );
+      batch.set(docRef, {
+        ...payment,
+        updatedAt: new Date().toISOString(),
+      });
     }
 
-    await Promise.all(batch);
+    await batch.commit();
     console.log(
       `✅ ${payments.length} pagamentos sincronizados com sucesso!`
     );
@@ -142,10 +136,12 @@ export const startRealtimeSync = (
 ): (() => void) => {
   console.log("👂 Iniciando sincronização em tempo real...");
 
-  const clientsRef = collection(db, "users", userId, "clients");
+  const clientsRef = firebaseFirestore
+    .collection("users")
+    .doc(userId)
+    .collection("clients");
 
-  const unsubscribe = onSnapshot(
-    clientsRef,
+  const unsubscribe = clientsRef.onSnapshot(
     (snapshot) => {
       console.log("🔔 Mudanças detectadas no Firestore!");
 

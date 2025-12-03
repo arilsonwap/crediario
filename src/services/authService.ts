@@ -1,14 +1,8 @@
-import {
-  auth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  User,
-} from "../firebaseConfig";
+import { firebaseAuth } from "../firebaseConfig";
+import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
 
 // ============================================================
-// 🔐 Serviço de Autenticação Firebase
+// 🔐 Serviço de Autenticação Firebase Nativo
 // ============================================================
 
 /**
@@ -17,10 +11,9 @@ import {
 export const login = async (
   email: string,
   password: string
-): Promise<User> => {
+): Promise<FirebaseAuthTypes.User> => {
   try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
+    const userCredential = await firebaseAuth.signInWithEmailAndPassword(
       email,
       password
     );
@@ -38,10 +31,9 @@ export const login = async (
 export const register = async (
   email: string,
   password: string
-): Promise<User> => {
+): Promise<FirebaseAuthTypes.User> => {
   try {
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
+    const userCredential = await firebaseAuth.createUserWithEmailAndPassword(
       email,
       password
     );
@@ -61,7 +53,7 @@ export const register = async (
  */
 export const logout = async (): Promise<void> => {
   try {
-    await signOut(auth);
+    await firebaseAuth.signOut();
     console.log("✅ Logout realizado com sucesso");
   } catch (error: any) {
     console.error("❌ Erro no logout:", error);
@@ -72,15 +64,17 @@ export const logout = async (): Promise<void> => {
 /**
  * Retorna o usuário atualmente autenticado
  */
-export const getCurrentUser = (): User | null => {
-  return auth.currentUser;
+export const getCurrentUser = (): FirebaseAuthTypes.User | null => {
+  return firebaseAuth.currentUser;
 };
 
 /**
  * Observa mudanças no estado de autenticação
  */
-export const onAuthChange = (callback: (user: User | null) => void) => {
-  return onAuthStateChanged(auth, callback);
+export const onAuthChange = (
+  callback: (user: FirebaseAuthTypes.User | null) => void
+) => {
+  return firebaseAuth.onAuthStateChanged(callback);
 };
 
 /**

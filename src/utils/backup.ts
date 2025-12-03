@@ -1,16 +1,15 @@
-// ✅ Importações compatíveis com Expo SDK 54
-import * as FileSystem from "expo-file-system/legacy";
+// ✅ Backup compatível com Expo SDK 54 + Firebase Nativo
+import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { getStorage, ref, uploadBytes } from "firebase/storage";
-import { app } from "../firebaseConfig";
+import { firebaseStorage } from "../firebaseConfig";
 
 /**
  * 💾 Cria um backup local do banco SQLite e abre o menu de compartilhamento.
  */
 export async function backupLocal(): Promise<void> {
   try {
-    const dbPath = `${(FileSystem as any).documentDirectory}SQLite/crediario.db`;
-    const backupPath = `${(FileSystem as any).documentDirectory}crediario_backup.db`;
+    const dbPath = `${FileSystem.documentDirectory}SQLite/crediario.db`;
+    const backupPath = `${FileSystem.documentDirectory}crediario_backup.db`;
 
     // Verifica se o banco existe
     const fileInfo = await FileSystem.getInfoAsync(dbPath);
@@ -33,14 +32,13 @@ export async function backupLocal(): Promise<void> {
 }
 
 /**
- * ☁️ Envia o banco SQLite para o Firebase Storage (com verificação e retry automático).
+ * ☁️ Envia o banco SQLite para o Firebase Storage (Firebase Nativo).
  */
 export async function backupFirebase(userId: string): Promise<void> {
   try {
     console.log("🌐 Iniciando upload para Firebase Storage...");
-    const storage = getStorage(app);
 
-    const dbPath = `${(FileSystem as any).documentDirectory}SQLite/crediario.db`;
+    const dbPath = `${FileSystem.documentDirectory}SQLite/crediario.db`;
 
     // Verifica se o banco existe
     const fileInfo = await FileSystem.getInfoAsync(dbPath);
@@ -48,27 +46,17 @@ export async function backupFirebase(userId: string): Promise<void> {
       throw new Error("Banco de dados não encontrado.");
     }
 
-    console.log("📄 Lendo banco de dados como Base64...");
-    const base64 = await FileSystem.readAsStringAsync(dbPath, {
-      encoding: "base64" as any,
-    });
-
-    // Converte Base64 em Blob
-    console.log("🔄 Convertendo Base64 → Blob...");
-    const blob = await (
-      await fetch(`data:application/octet-stream;base64,${base64}`)
-    ).blob();
-
+    console.log("📄 Lendo banco de dados...");
     const fileName = `crediario_${new Date()
       .toISOString()
       .replace(/[:.]/g, "-")}.db`;
-    const storageRef = ref(storage, `backups/${userId}/${fileName}`);
+    const storageRef = firebaseStorage.ref(`backups/${userId}/${fileName}`);
 
     // Função auxiliar com retry (até 3 tentativas)
     const tryUpload = async (attempt = 1): Promise<void> => {
       try {
         console.log(`📤 Tentativa ${attempt}: enviando backup...`);
-        await uploadBytes(storageRef, blob);
+        await storageRef.putFile(dbPath);
         console.log("✅ Upload concluído com sucesso!");
       } catch (err) {
         console.error(`🚨 Falha durante upload (tentativa ${attempt}):`, err);

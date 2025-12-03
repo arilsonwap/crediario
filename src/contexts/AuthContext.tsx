@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { User } from "../firebaseConfig";
+import type { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { onAuthChange, logout as firebaseLogout } from "../services/authService";
 
 // ============================================================
@@ -7,7 +7,7 @@ import { onAuthChange, logout as firebaseLogout } from "../services/authService"
 // ============================================================
 
 interface AuthContextData {
-  user: User | null;
+  user: FirebaseAuthTypes.User | null;
   loading: boolean;
   logout: () => Promise<void>;
 }
@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
