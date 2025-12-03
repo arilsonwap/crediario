@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { View, ActivityIndicator } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
@@ -22,6 +22,32 @@ const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   const { user, loading } = useAuth();
+
+  const screens = useMemo(
+    () => ({
+      LoginScreen,
+      HomeScreen,
+      ClientListScreen,
+      ClientDetailScreen,
+      EditClientScreen,
+      AddClientScreen,
+      BackupScreen,
+      UpcomingChargesScreen,
+      ClientsByDateScreen,
+      ClientLogScreen,
+      PaymentHistoryScreen,
+      ReportsScreen,
+    }),
+    []
+  );
+
+  Object.entries(screens).forEach(([name, component]) => {
+    if (!component) {
+      throw new Error(
+        `A tela "${name}" está indefinida. Verifique o export default do arquivo em src/screens/${name}.tsx`
+      );
+    }
+  });
 
   // Exibe um loader enquanto verifica o estado de autenticação
   if (loading) {
