@@ -12,17 +12,25 @@ import {
   query,
   where,
 } from "firebase/firestore";
+
+// ❗️ IMPORTANTE: usar initializeAuth PARA REACT NATIVE
 import {
-  getAuth,
+  initializeAuth,
+  getReactNativePersistence,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
   User,
 } from "firebase/auth";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { getStorage } from "firebase/storage";
 
-// Your web app's Firebase configuration
+// --------------------------------------
+// 🔥 Configuração Firebase
+// --------------------------------------
 const firebaseConfig = {
   apiKey: "AIzaSyAzQcyWf2argX07xwZaEpWmht7Ty74haHI",
   authDomain: "crediario-app.firebaseapp.com",
@@ -32,15 +40,27 @@ const firebaseConfig = {
   appId: "1:464413033372:web:67344359b50089bc3ffe59",
 };
 
-// ✅ Evita inicializar o app mais de uma vez
+// --------------------------------------
+// 🔥 Inicializa APP (evita múltiplas instâncias)
+// --------------------------------------
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// ✅ Inicializa os serviços do Firebase
+// --------------------------------------
+// 🔐 Auth com persistência REAL no AsyncStorage
+// --------------------------------------
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
+
+// --------------------------------------
+// 🔥 Firestore + Storage
+// --------------------------------------
 export const db = getFirestore(app);
-export const auth = getAuth(app);
 export const storage = getStorage(app);
 
-// ✅ Exporta utilitários do Firestore
+// --------------------------------------
+// 📦 Exporta utilitários do Firestore
+// --------------------------------------
 export {
   collection,
   addDoc,
@@ -54,7 +74,9 @@ export {
   where,
 };
 
-// ✅ Exporta utilitários do Authentication
+// --------------------------------------
+// 🔐 Exporta utilitários de Auth
+// --------------------------------------
 export {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -62,3 +84,4 @@ export {
   onAuthStateChanged,
   type User,
 };
+
