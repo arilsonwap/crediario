@@ -1,4 +1,15 @@
-import { firebaseFirestore } from "../firebaseConfig";
+// ============================================================
+// 🔄 Serviço de Sincronização com Firebase Firestore (Web SDK)
+// ============================================================
+import { db } from "../firebaseConfig";
+import {
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  onSnapshot,
+  writeBatch,
+} from "firebase/firestore";
 import {
   getAllClients,
   addClient,
@@ -7,10 +18,6 @@ import {
   Client,
   Payment,
 } from "../database/db";
-
-// ============================================================
-// 🔄 Serviço de Sincronização com Firebase Firestore Nativo
-// ============================================================
 
 /**
  * Sincroniza todos os clientes locais para o Firestore
@@ -21,17 +28,12 @@ export const syncClientsToFirestore = async (
   try {
     console.log("🔄 Sincronizando clientes para Firestore...");
     const clients = getAllClients();
-    const batch = firebaseFirestore.batch();
+    const batch = writeBatch(db);
 
     for (const client of clients) {
       if (!client.id) continue;
 
-      const docRef = firebaseFirestore
-        .collection("users")
-        .doc(userId)
-        .collection("clients")
-        .doc(String(client.id));
-
+      const docRef = doc(db, "users", userId, "clients", String(client.id));
       batch.set(docRef, {
         ...client,
         updatedAt: new Date().toISOString(),
@@ -54,16 +56,12 @@ export const syncClientsFromFirestore = async (
 ): Promise<void> => {
   try {
     console.log("📥 Baixando clientes do Firestore...");
-    const clientsRef = firebaseFirestore
-      .collection("users")
-      .doc(userId)
-      .collection("clients");
-
-    const snapshot = await clientsRef.get();
+    const clientsRef = collection(db, "users", userId, "clients");
+    const snapshot = await getDocs(clientsRef);
 
     let count = 0;
-    snapshot.forEach((doc) => {
-      const data = doc.data() as Client;
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as Client;
       try {
         // Verifica se o cliente já existe localmente
         const localClients = getAllClients();
@@ -76,7 +74,7 @@ export const syncClientsFromFirestore = async (
         }
         count++;
       } catch (e) {
-        console.warn(`⚠️ Erro ao importar cliente ${doc.id}:`, e);
+        console.warn(`⚠️ Erro ao importar cliente ${docSnap.id}:`, e);
       }
     });
 
@@ -97,18 +95,20 @@ export const syncPaymentsToFirestore = async (
   try {
     console.log(`🔄 Sincronizando pagamentos do cliente ${clientId}...`);
     const payments = getPaymentsByClient(clientId);
-    const batch = firebaseFirestore.batch();
+    const batch = writeBatch(db);
 
     for (const payment of payments) {
       if (!payment.id) continue;
 
-      const docRef = firebaseFirestore
-        .collection("users")
-        .doc(userId)
-        .collection("clients")
-        .doc(String(clientId))
-        .collection("payments")
-        .doc(String(payment.id));
+      const docRef = doc(
+        db,
+        "users",
+        userId,
+        "clients",
+        String(clientId),
+        "payments",
+        String(payment.id)
+      );
 
       batch.set(docRef, {
         ...payment,
@@ -136,12 +136,10 @@ export const startRealtimeSync = (
 ): (() => void) => {
   console.log("👂 Iniciando sincronização em tempo real...");
 
-  const clientsRef = firebaseFirestore
-    .collection("users")
-    .doc(userId)
-    .collection("clients");
+  const clientsRef = collection(db, "users", userId, "clients");
 
-  const unsubscribe = clientsRef.onSnapshot(
+  const unsubscribe = onSnapshot(
+    clientsRef,
     (snapshot) => {
       console.log("🔔 Mudanças detectadas no Firestore!");
 

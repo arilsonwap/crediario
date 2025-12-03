@@ -1,19 +1,49 @@
-// --------------------------------------
-// 🔥 FIREBASE NATIVO - @react-native-firebase
-// --------------------------------------
-// ✔ Configuração para Expo SDK 54 com Firebase Nativo
-// ✔ NÃO usa mais firebase/app, firebase/auth, firebase/firestore
-// ✔ Usa @react-native-firebase (SDK nativo iOS/Android)
+// ============================================================
+// 🔥 FIREBASE CONFIGURAÇÃO HÍBRIDA - Expo SDK 54
+// ============================================================
+// ✅ Firestore: Firebase Web SDK (firebase/firestore)
+// ✅ Auth: Firebase Nativo (@react-native-firebase/auth)
+// ✅ Storage: Firebase Nativo (@react-native-firebase/storage)
+// ============================================================
 
+// 🌐 Firebase Web (para Firestore)
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+
+// 📱 Firebase Nativo (para Auth e Storage)
 import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
 import storage from "@react-native-firebase/storage";
 
 // --------------------------------------
-// 🔥 Exporta instâncias Firebase Nativas
+// 🔥 Configuração Firebase
+// --------------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyAzQcyWf2argX07xwZaEpWmht7Ty74haHI",
+  authDomain: "crediario-app.firebaseapp.com",
+  projectId: "crediario-app",
+  storageBucket: "crediario-app.firebasestorage.app",
+  messagingSenderId: "464413033372",
+  appId: "1:464413033372:web:67344359b50089bc3ffe59",
+};
+
+// --------------------------------------
+// 🔥 Inicializa Firebase App (Web)
+// --------------------------------------
+export const app = initializeApp(firebaseConfig);
+
+// --------------------------------------
+// 🌐 Firestore (Web SDK)
+// --------------------------------------
+export const db = getFirestore(app);
+
+// --------------------------------------
+// 📱 Auth (Nativo)
 // --------------------------------------
 export const firebaseAuth = auth();
-export const firebaseFirestore = firestore();
+
+// --------------------------------------
+// 📱 Storage (Nativo)
+// --------------------------------------
 export const firebaseStorage = storage();
 
 // --------------------------------------
